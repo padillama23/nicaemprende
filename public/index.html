@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NicaEmprende Conecta</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body { 
+  background: #f4f6f9; 
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* HEADER CON LOGO FLOTANTE */
+header {
+  background: linear-gradient(135deg, #0077cc, #00c6ff);
+  color: white;
+  padding: 20px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  position: relative;
+  overflow: hidden;
+}
+
+header .container {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.logo-flotante {
+  animation: flotar 3s ease-in-out infinite;
+  display: inline-block;
+}
+
+@keyframes flotar {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+.logo {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  border: 3px solid white;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+  object-fit: cover;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.logo:hover {
+  transform: scale(1.05);
+  box-shadow: 0 12px 28px rgba(0,0,0,0.4);
+}
+
+header h2 {
+  font-size: 2rem;
+  margin-bottom: 5px;
+}
+
+header p {
+  font-size: 1rem;
+  opacity: 0.95;
+}
+
+@media (max-width: 768px) {
+  .logo {
+    width: 80px;
+    height: 80px;
+  }
+  header h2 {
+    font-size: 1.3rem;
+  }
+  header p {
+    font-size: 0.8rem;
+  }
+}
+
+#map { 
+  height: 400px; 
+  border-radius: 15px; 
+  margin-bottom: 30px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.card {
+  border-radius: 12px;
+  border: none;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+}
+
+.card-img-top {
+  height: 200px;
+  object-fit: cover;
+  border-radius: 12px 12px 0 0;
+}
+
+.btn-whatsapp {
+  background-color: #25D366;
+  color: white;
+  transition: all 0.2s;
+}
+
+.btn-whatsapp:hover {
+  background-color: #128C7E;
+  color: white;
+  transform: scale(1.02);
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #0077cc, #005fa3);
+  border: none;
+}
+
+.btn-success {
+  background: linear-gradient(135deg, #28a745, #1e7e34);
+  border: none;
+}
+
+.form-control, .btn {
+  border-radius: 8px;
+}
+
+/* Estilo para el botón del ojito */
+.input-group .btn-outline-secondary {
+  border-top-right-radius: 8px;
+  border-bottom-right-radius: 8px;
+  transition: all 0.3s;
+}
+
+.input-group .btn-outline-secondary:hover {
+  background-color: #0077cc;
+  color: white;
+  border-color: #0077cc;
+}
+
+.input-group .btn-outline-secondary i {
+  font-size: 16px;
+  transition: transform 0.2s;
+}
+
+.input-group .btn-outline-secondary:hover i {
+  transform: scale(1.1);
+}
+
+#formPublicar, #misPublicaciones {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.producto-card {
+  animation: fadeIn 0.5s ease-in;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+footer {
+  background: #2c3e50;
+  color: white;
+  text-align: center;
+  padding: 20px;
+  margin-top: 50px;
+}
+
+.btn-edit {
+  background-color: #ffc107;
+  color: #000;
+  margin-right: 5px;
+}
+
+.btn-edit:hover {
+  background-color: #ffb300;
+  color: #000;
+}
+
+.btn-delete {
+  background-color: #dc3545;
+  color: white;
+}
+
+.btn-delete:hover {
+  background-color: #c82333;
+  color: white;
+}
+
+.modal-content {
+  border-radius: 15px;
+}
+
+.tab-buttons {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.tab-btn {
+  flex: 1;
+  padding: 10px;
+  border: none;
+  background: #e0e0e0;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.tab-btn.active {
+  background: linear-gradient(135deg, #0077cc, #00c6ff);
+  color: white;
+}
+
+.producto-propio {
+  border-left: 4px solid #0077cc;
+}
+
+/* Estilos del carrito */
+.carrito-icono {
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  width: 60px;
+  height: 60px;
+  background: linear-gradient(135deg, #0077cc, #00c6ff);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+  transition: all 0.3s;
+  z-index: 1000;
+}
+
+.carrito-icono:hover {
+  transform: scale(1.1);
+  box-shadow: 0 12px 28px rgba(0,0,0,0.3);
+}
+
+.carrito-icono i {
+  font-size: 28px;
+  color: white;
+}
+
+.carrito-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  background: #ff5722;
+  color: white;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: bold;
+  display: none;
+}
+
+.carrito-modal, .checkout-modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.5);
+  z-index: 1001;
+  justify-content: center;
+  align-items: center;
+}
+
+.carrito-contenido, .checkout-contenido {
+  background: white;
+  border-radius: 15px;
+  width: 90%;
+  max-width: 800px;
+  max-height: 80vh;
+  overflow: hidden;
+  animation: slideIn 0.3s;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateY(-50px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.carrito-header {
+  background: linear-gradient(135deg, #0077cc, #00c6ff);
+  color: white;
+  padding: 15px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.carrito-header h3 {
+  margin: 0;
+}
+
+.cerrar-carrito {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 28px;
+  cursor: pointer;
+  transition: transform 0.3s;
+}
+
+.cerrar-carrito:hover {
+  transform: rotate(90deg);
+}
+
+.carrito-body, .checkout-body {
+  padding: 20px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.carrito-items {
+  margin-bottom: 20px;
+}
+
+.carrito-item {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 15px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.carrito-item-img {
+  width: 60px;
+  height: 60px;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+.carrito-item-info {
+  flex: 1;
+}
+
+.carrito-item-titulo {
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+.carrito-item-precio {
+  color: #28a745;
+  font-size: 14px;
+}
+
+.carrito-item-vendedor {
+  font-size: 12px;
+  color: #666;
+}
+
+.carrito-item-cantidad {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.btn-cantidad {
+  width: 30px;
+  height: 30px;
+  background: #0077cc;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: all 0.3s;
+}
+
+.btn-cantidad:hover {
+  background: #005fa3;
+  transform: scale(1.05);
+}
+
+.cantidad-numero {
+  min-width: 30px;
+  text-align: center;
+  font-weight: bold;
+}
+
+.carrito-item-subtotal {
+  min-width: 100px;
+  text-align: right;
+  font-weight: bold;
+  color: #0077cc;
+}
+
+.btn-eliminar-item {
+  background: none;
+  border: none;
+  color: #dc3545;
+  cursor: pointer;
+  font-size: 18px;
+  transition: transform 0.3s;
+}
+
+.btn-eliminar-item:hover {
+  transform: scale(1.1);
+}
+
+.carrito-footer {
+  padding: 20px;
+  border-top: 1px solid #e0e0e0;
+  background: #f8f9fa;
+}
+
+.carrito-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 20px;
+  font-weight: bold;
+  margin-bottom: 15px;
+}
+
+.btn-comprar {
+  width: 100%;
+  padding: 12px;
+  background: linear-gradient(135deg, #28a745, #1e7e34);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.btn-comprar:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(40,167,69,0.3);
+}
+
+.btn-agregar-carrito {
+  background: #ff9800;
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.3s;
+  margin-top: 10px;
+}
+
+.btn-agregar-carrito:hover {
+  background: #f57c00;
+  transform: scale(1.02);
+}
+
+.notificacion-carrito {
+  position: fixed;
+  bottom: 100px;
+  right: 30px;
+  background: #28a745;
+  color: white;
+  padding: 12px 20px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  z-index: 1002;
+  transform: translateX(400px);
+  transition: transform 0.3s;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+
+.notificacion-carrito.mostrar {
+  transform: translateX(0);
+}
+
+.checkout-contenido {
+  max-width: 500px;
+}
+
+.checkout-body input,
+.checkout-body textarea {
+  width: 100%;
+  padding: 10px;
+  margin-bottom: 15px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+}
+
+.resumen-items {
+  margin: 15px 0;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.resumen-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid #eee;
+}
+
+.resumen-total {
+  display: flex;
+  justify-content: space-between;
+  padding: 15px 0;
+  border-top: 2px solid #0077cc;
+  font-size: 18px;
+}
+
+#passwordStrength {
+  font-size: 12px;
+  margin-top: 5px;
+}
+
+@media (max-width: 768px) {
+  .carrito-item {
+    flex-wrap: wrap;
+  }
+  .carrito-item-subtotal {
+    margin-left: 75px;
+  }
+  .carrito-icono {
+    width: 50px;
+    height: 50px;
+    bottom: 20px;
+    right: 20px;
+  }
+  .carrito-icono i {
+    font-size: 24px;
+  }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="container">
+    <div class="row align-items-center">
+      <div class="col-auto">
+        <div class="logo-flotante">
+          <img src="/imagen/img1.png" alt="NicaEmprende" class="logo"
+               onerror="this.src='https://via.placeholder.com/120?text=NE'">
+        </div>
+      </div>
+      <div class="col text-center">
+        <h2>NicaEmprende Conecta</h2>
+        <p>Conectando emprendedores nicaragüenses</p>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div class="container mt-4">
+
+<div class="row mb-4">
+  <!-- REGISTRO -->
+  <div class="col-md-6 mb-3">
+    <div class="card p-4 shadow">
+      <h5 class="mb-3">📝 Registrarse</h5>
+      <input id="nombreR" class="form-control mb-2" placeholder="Nombre completo">
+      <input id="telR" class="form-control mb-2" placeholder="Teléfono">
+      
+      <!-- Campo contraseña con ojito -->
+      <div class="input-group mb-2">
+        <input type="password" id="passR" class="form-control" placeholder="Contraseña (mínimo 6 caracteres)" onkeyup="verificarFuerzaPassword()">
+        <button class="btn btn-outline-secondary" type="button" onclick="togglePassword('passR', this)">
+          <i class="fas fa-eye"></i>
+        </button>
+      </div>
+      <div id="passwordStrength" class="mb-2"></div>
+      
+      <button onclick="registrarUsuario()" class="btn btn-primary w-100">Crear cuenta</button>
+    </div>
+  </div>
+
+  <!-- LOGIN -->
+  <div class="col-md-6 mb-3">
+    <div class="card p-4 shadow">
+      <h5 class="mb-3">🔐 Iniciar sesión</h5>
+      <input id="telLogin" class="form-control mb-2" placeholder="Teléfono">
+      
+      <!-- Campo contraseña con ojito -->
+      <div class="input-group mb-2">
+        <input type="password" id="passLogin" class="form-control" placeholder="Contraseña">
+        <button class="btn btn-outline-secondary" type="button" onclick="togglePassword('passLogin', this)">
+          <i class="fas fa-eye"></i>
+        </button>
+      </div>
+      
+      <button onclick="login()" class="btn btn-success w-100 mb-2">Entrar</button>
+      <button id="btnLogout" onclick="logout()" class="btn btn-danger w-100" style="display:none;">Cerrar sesión</button>
+    </div>
+  </div>
+</div>
+
+<div id="userTabs" style="display:none;">
+  <div class="tab-buttons">
+    <button class="tab-btn active" onclick="mostrarTab('publicar')">📦 Publicar Producto</button>
+    <button class="tab-btn" onclick="mostrarTab('misProductos')">📋 Mis Publicaciones</button>
+  </div>
+</div>
+
+<div id="formPublicar" class="card p-4 mb-4" style="display:none;">
+  <h5 class="mb-3">📦 Publicar nuevo producto</h5>
+  <div class="row">
+    <div class="col-md-6">
+      <input id="nombre" class="form-control mb-2" placeholder="Tu nombre">
+      <input id="tel" class="form-control mb-2" placeholder="Teléfono de contacto *">
+      <input id="prod" class="form-control mb-2" placeholder="Nombre del producto *">
+      <input id="precio" class="form-control mb-2" type="number" placeholder="Precio en C$ *">
+    </div>
+    <div class="col-md-6">
+      <div class="row">
+        <div class="col-6">
+          <input id="lat" class="form-control mb-2" placeholder="Latitud" readonly>
+        </div>
+        <div class="col-6">
+          <input id="lng" class="form-control mb-2" placeholder="Longitud" readonly>
+        </div>
+      </div>
+      <button type="button" onclick="obtenerMiUbicacion()" class="btn btn-info btn-sm mb-2 w-100">📍 Usar mi ubicación</button>
+      <input type="file" id="foto" class="form-control mb-2" accept="image/*">
+      <small class="text-muted">💡 Haz clic en el mapa para seleccionar ubicación</small>
+    </div>
+  </div>
+  <button onclick="publicar()" class="btn btn-primary w-100 mt-3">Publicar producto</button>
+</div>
+
+<div id="misPublicaciones" class="card p-4 mb-4" style="display:none;">
+  <h5 class="mb-3">📋 Mis Publicaciones</h5>
+  <div id="misProductosList" class="row"></div>
+</div>
+
+<div id="map"></div>
+
+<h4 class="mb-3">🛍️ Productos destacados</h4>
+<div class="row" id="productos"></div>
+
+</div>
+
+<div class="modal fade" id="editModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title">✏️ Editar Producto</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="editProductoId">
+        <div class="row">
+          <div class="col-md-6">
+            <label class="form-label">Nombre del producto</label>
+            <input id="editProd" class="form-control mb-2" placeholder="Nombre del producto">
+            <label class="form-label">Precio</label>
+            <input id="editPrecio" class="form-control mb-2" type="number" placeholder="Precio">
+            <label class="form-label">Tu nombre</label>
+            <input id="editNombre" class="form-control mb-2" placeholder="Tu nombre">
+            <label class="form-label">Teléfono de contacto</label>
+            <input id="editTelefono" class="form-control mb-2" placeholder="Teléfono">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Latitud</label>
+            <input id="editLat" class="form-control mb-2" placeholder="Latitud">
+            <label class="form-label">Longitud</label>
+            <input id="EditLng" class="form-control mb-2" placeholder="Longitud">
+            <label class="form-label">Nueva foto (opcional)</label>
+            <input type="file" id="editFoto" class="form-control mb-2" accept="image/*">
+            <div id="fotoActual" class="mt-2"></div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-primary" onclick="guardarEdicion()">Guardar cambios</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Carrito de Compras -->
+<div class="carrito-icono" onclick="abrirCarrito()">
+  <i class="fas fa-shopping-cart"></i>
+  <span class="carrito-badge" id="carritoContador">0</span>
+</div>
+
+<div id="carritoModal" class="carrito-modal">
+  <div class="carrito-contenido">
+    <div class="carrito-header">
+      <h3><i class="fas fa-shopping-cart"></i> Mi Carrito</h3>
+      <button class="cerrar-carrito" onclick="cerrarCarrito()">&times;</button>
+    </div>
+    <div class="carrito-body">
+      <div id="carritoItems" class="carrito-items">
+        <div class="text-center p-4">Cargando...</div>
+      </div>
+    </div>
+    <div class="carrito-footer">
+      <div class="carrito-total">
+        <span>Total:</span>
+        <span id="carritoTotal" class="text-success">C$ 0</span>
+      </div>
+      <button class="btn-comprar" onclick="abrirCheckout()">
+        <i class="fas fa-credit-card"></i> Proceder a pagar
+      </button>
+    </div>
+  </div>
+</div>
+
+<div id="checkoutModal" class="checkout-modal">
+  <div class="checkout-contenido">
+    <div class="carrito-header">
+      <h3><i class="fas fa-truck"></i> Completar pedido</h3>
+      <button class="cerrar-carrito" onclick="cerrarCheckout()">&times;</button>
+    </div>
+    <div class="checkout-body">
+      <input type="text" id="checkoutNombre" placeholder="Tu nombre completo" required>
+      <textarea id="checkoutDireccion" rows="3" placeholder="Tu dirección completa" required></textarea>
+      <div id="carritoResumen"></div>
+      <button class="btn-comprar" onclick="finalizarCompra()">
+        <i class="fab fa-whatsapp"></i> Enviar pedido por WhatsApp
+      </button>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <p>&copy; 2024 NicaEmprende Conecta - Apoyando al emprendedor nicaragüense</p>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script src="app.js"></script>
+<script src="carrito.js"></script>
+</body>
+</html>
