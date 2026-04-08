@@ -456,6 +456,7 @@ async function cargarProductos() {
       
       const fotoUrl = prod.foto ? `${API}/uploads/${prod.foto}` : "https://via.placeholder.com/300x200?text=Sin+Imagen";
       
+      // IMPORTANTE: El teléfono se pasa al carrito
       col.innerHTML = `
         <div class="card h-100 shadow-sm">
           <img src="${fotoUrl}" class="card-img-top" alt="${prod.producto}" onerror="this.src='https://via.placeholder.com/300x200?text=Error+Imagen'">
@@ -463,7 +464,15 @@ async function cargarProductos() {
             <h6 class="card-title fw-bold">${prod.producto}</h6>
             <p class="text-success fw-bold fs-5">C$ ${prod.precio.toLocaleString()}</p>
             <p class="small text-muted">👤 ${prod.nombre || 'Anónimo'}</p>
-            <button onclick='agregarAlCarrito(${JSON.stringify(prod)})' class="btn-agregar-carrito w-100">
+            <p class="small text-muted">📞 ${prod.telefono || 'Sin teléfono'}</p>
+            <button onclick='agregarAlCarrito({
+              _id: "${prod._id}",
+              producto: "${prod.producto.replace(/"/g, '\\"')}",
+              precio: ${prod.precio},
+              foto: "${prod.foto || ''}",
+              telefono: "${prod.telefono || ''}",
+              nombre: "${(prod.nombre || 'Emprendedor').replace(/"/g, '\\"')}"
+            })' class="btn-agregar-carrito w-100">
               <i class="fas fa-cart-plus"></i> Agregar al carrito
             </button>
             <a href="https://wa.me/${prod.telefono}" target="_blank" class="btn btn-whatsapp btn-sm w-100 mt-2">
@@ -478,6 +487,7 @@ async function cargarProductos() {
       
       contenedor.appendChild(col);
       
+      // Resto del código para marcadores...
       if (prod.lat && prod.lng && map) {
         const marker = L.marker([prod.lat, prod.lng])
           .bindPopup(`

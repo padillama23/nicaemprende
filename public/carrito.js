@@ -188,7 +188,7 @@ function cerrarCheckout() {
     }
 }
 
-function finalizarCompra() {
+async function finalizarCompra() {
     if (carrito.length === 0) {
         mostrarNotificacionCarrito('⚠️ El carrito está vacío');
         return;
@@ -202,21 +202,67 @@ function finalizarCompra() {
         return;
     }
     
-    const total = calcularTotal();
-    let mensaje = `?text=*NUEVO PEDIDO - NicaEmprende*%0A`;
-    mensaje += `*Cliente:* ${nombre}%0A`;
-    mensaje += `*Dirección:* ${direccion}%0A`;
-    mensaje += `%0A*PRODUCTOS:*%0A`;
+    // Agrupar productos por vendedor
+    const pedidosPorVendedor = {};
     
     carrito.forEach(item => {
-        mensaje += `- ${item.producto} x${item.cantidad} = C$${(item.precio * item.cantidad).toLocaleString()}%0A`;
+        const telefonoVendedor = item.telefono || '';
+        if (!pedidosPorVendedor[telefonoVendedor]) {
+            pedidosPorVendedor[telefonoVendedor] = {
+                telefono: telefonoVendedor,
+                nombre: item.nombre || 'Vendedor',
+                productos: []
+            };
+        }
+        pedidosPorVendedor[telefonoVendedor].productos.push(item);
     });
     
-    mensaje += `%0A*TOTAL: C$${total.toLocaleString()}*%0A`;
-    mensaje += `%0A¡Gracias por apoyar a los emprendedores nicaragüenses!`;
+    const vendedores = Object.keys(pedidosPorVendedor);
     
-    window.open(`https://wa.me/505${mensaje}`, '_blank');
+    // Confirmar con el usuario
+    let mensajeConfirmacion = `📦 Tu pedido se enviará a ${vendedores.length} vendedor(es):\n\n`;
+    for (const telefono in pedidosPorVendedor) {
+        const vendedor = pedidosPorVendedor[telefono];
+        const totalVendedor = vendedor.productos.reduce((sum, p) => sum + (p.precio * p.cantidad), 0);
+        mensajeConfirmacion += `👤 ${vendedor.nombre}: C$${totalVendedor.toLocaleString()}\n`;
+    }
+    mensajeConfirmacion += `\n¿Deseas continuar?`;
     
+    if (!confirm(mensajeConfirmacion)) {
+        return;
+    }
+    
+    // Enviar mensaje a cada vendedor
+    for (const telefono in pedidosPorVendedor) {
+        const vendedor = pedidosPorVendedor[telefono];
+        let telefonoLimpio = telefono.replace(/\D/g, '');
+        
+        if (telefonoLimpio.length === 8) {
+            telefonoLimpio = '505' + telefonoLimpio;
+        }
+        
+        const totalVendedor = vendedor.productos.reduce((sum, p) => sum + (p.precio * p.cantidad), 0);
+        
+        let mensaje = `*NUEVO PEDIDO - NicaEmprende*%0A`;
+        mensaje += `*Cliente:* ${nombre}%0A`;
+        mensaje += `*Dirección:* ${direccion}%0A`;
+        mensaje += `*Vendedor:* ${vendedor.nombre}%0A`;
+        mensaje += `%0A*PRODUCTOS:*%0A`;
+        
+        vendedor.productos.forEach(item => {
+            mensaje += `- ${item.producto} x${item.cantidad} = C$${(item.precio * item.cantidad).toLocaleString()}%0A`;
+        });
+        
+        mensaje += `%0A*TOTAL: C$${totalVendedor.toLocaleString()}*%0A`;
+        mensaje += `%0A¡Gracias por apoyar a los emprendedores nicaragüenses!`;
+        
+        if (telefonoLimpio && telefonoLimpio.length >= 8) {
+            window.open(`https://wa.me/${telefonoLimpio}?text=${mensaje}`, '_blank');
+            await new Promise(resolve => setTimeout(resolve, 800));
+        }
+    }
+    
+    // Limpiar carrito
     carrito = [];
     guardarCarrito();
     actualizarCarrito();
@@ -225,7 +271,7 @@ function finalizarCompra() {
     document.getElementById('checkoutNombre').value = '';
     document.getElementById('checkoutDireccion').value = '';
     
-    mostrarNotificacionCarrito('✅ Pedido enviado. ¡Gracias por tu compra!');
+    mostrarNotificacionCarrito(`✅ Pedidos enviados a ${vendedores.length} vendedor(es)`);
 }
 
 window.onclick = function(event) {
