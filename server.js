@@ -16,7 +16,8 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 app.use(express.static("public"));
 
 // MongoDB
-mongoose.connect("mongodb://127.0.0.1:27017/nicaemprende")
+const MONGO_URI = process.env.MONGO_URI || "mongodb://127.0.0.1:27017/nicaemprende";
+mongoose.connect(MONGO_URI)
   .then(() => console.log("✅ MongoDB conectado"))
   .catch(err => console.log("❌ Error MongoDB:", err));
 

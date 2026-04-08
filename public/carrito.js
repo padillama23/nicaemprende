@@ -273,7 +273,6 @@ async function finalizarCompra() {
     
     mostrarNotificacionCarrito(`✅ Pedidos enviados a ${vendedores.length} vendedor(es)`);
 }
-
 window.onclick = function(event) {
     const carritoModal = document.getElementById('carritoModal');
     const checkoutModal = document.getElementById('checkoutModal');
