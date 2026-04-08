@@ -204,7 +204,6 @@ function finalizarCompra() {
     
     const total = calcularTotal();
     
-    // Construir mensaje
     let mensaje = `*NUEVO PEDIDO - NicaEmprende*%0A`;
     mensaje += `*Cliente:* ${nombre}%0A`;
     mensaje += `*Dirección:* ${direccion}%0A`;
@@ -217,15 +216,20 @@ function finalizarCompra() {
     mensaje += `%0A*TOTAL: C$${total.toLocaleString()}*%0A`;
     mensaje += `%0A¡Gracias por apoyar a los emprendedores nicaragüenses!`;
     
-    // CAMBIA ESTE NÚMERO por el teléfono del negocio (código de país sin +)
-    // Nicaragua es 505, luego el número de 8 dígitos
-    const numeroWhatsApp = "50512345678"; // Ejemplo: 505 8888 8888
+    // Usa el teléfono del vendedor del primer producto
+    // Limpia el número (solo dígitos)
+    let telefonoVendedor = carrito[0]?.telefono || "";
+    telefonoVendedor = telefonoVendedor.replace(/\D/g, ''); // Elimina todo excepto números
     
-    const urlWhatsApp = `https://wa.me/${numeroWhatsApp}?text=${mensaje}`;
+    // Si el número no tiene código de país, agrega 505 (Nicaragua)
+    if (telefonoVendedor.length === 8) {
+        telefonoVendedor = "505" + telefonoVendedor;
+    }
+    
+    const urlWhatsApp = `https://wa.me/${telefonoVendedor}?text=${mensaje}`;
     
     window.open(urlWhatsApp, '_blank');
     
-    // Limpiar carrito
     carrito = [];
     guardarCarrito();
     actualizarCarrito();
@@ -234,7 +238,7 @@ function finalizarCompra() {
     document.getElementById('checkoutNombre').value = '';
     document.getElementById('checkoutDireccion').value = '';
     
-    mostrarNotificacionCarrito('✅ Pedido enviado. ¡Gracias por tu compra!');
+    mostrarNotificacionCarrito('✅ Pedido enviado al vendedor');
 }
 
 window.onclick = function(event) {
