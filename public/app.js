@@ -108,6 +108,20 @@ function verificarLogin() {
     if (btnLogout) btnLogout.style.display = "block";
     mostrarTab('publicar');
     cargarMisProductos();
+    
+    // AUTOCOMPLETAR el teléfono y nombre del vendedor
+    const userTelefono = localStorage.getItem("userTelefono");
+    const userNombre = localStorage.getItem("userNombre");
+    
+    if (userTelefono) {
+      const telInput = document.getElementById("tel");
+      if (telInput) telInput.value = userTelefono;
+    }
+    
+    if (userNombre) {
+      const nombreInput = document.getElementById("nombre");
+      if (nombreInput) nombreInput.value = userNombre;
+    }
   } else {
     if (userTabs) userTabs.style.display = "none";
     if (formPublicar) formPublicar.style.display = "none";
@@ -164,9 +178,15 @@ async function registrarUsuario() {
       document.getElementById("nombreR").value = "";
       document.getElementById("telR").value = "";
       document.getElementById("passR").value = "";
+      
+      // Autocompletar login
       document.getElementById("telLogin").value = telefono;
       document.getElementById("passLogin").value = password;
-      document.getElementById("passwordStrength").innerHTML = "";
+      
+      // Preguntar si quiere iniciar sesión automáticamente
+      if (confirm("✅ Usuario creado. ¿Deseas iniciar sesión ahora?")) {
+        login();
+      }
     } else {
       mostrarNotificacion("❌ " + (data.error || "Error al registrar"), "error");
     }
@@ -195,6 +215,10 @@ async function login() {
     
     if (res.ok && data.token) {
       localStorage.setItem("token", data.token);
+      // Guardar el teléfono del usuario para usarlo al publicar
+      localStorage.setItem("userTelefono", data.usuario.telefono);
+      localStorage.setItem("userNombre", data.usuario.nombre);
+      
       mostrarNotificacion("✅ ¡Bienvenido " + (data.usuario?.nombre || "Emprendedor") + "!", "success");
       setTimeout(() => {
         window.location.reload();
