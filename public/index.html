@@ -713,6 +713,20 @@ footer {
   <span class="carrito-badge" id="carritoContador">0</span>
 </div>
 
+<div class="carrito-footer">
+    <div class="carrito-total">
+        <span>Total:</span>
+        <span id="carritoTotal" class="text-success">C$ 0</span>
+    </div>
+    <button class="btn btn-danger w-100 mb-2" onclick="limpiarCarrito()">
+        🗑️ Vaciar carrito
+    </button>
+    <button class="btn-comprar" onclick="abrirCheckout()">
+        <i class="fas fa-credit-card"></i> Proceder a pagar
+    </button>
+</div>
+
+
 <div id="carritoModal" class="carrito-modal">
   <div class="carrito-contenido">
     <div class="carrito-header">

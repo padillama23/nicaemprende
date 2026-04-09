@@ -14,6 +14,36 @@ function guardarCarrito() {
 }
 
 function agregarAlCarrito(producto) {
+    // Verificar si el carrito está vacío
+    if (carrito.length === 0) {
+        // Carrito vacío, agregar producto normalmente
+        carrito.push({
+            _id: producto._id,
+            producto: producto.producto,
+            precio: producto.precio,
+            foto: producto.foto,
+            telefono: producto.telefono || '',
+            nombre: producto.nombre || 'Vendedor',
+            cantidad: 1
+        });
+        guardarCarrito();
+        actualizarCarrito();
+        mostrarNotificacionCarrito(`✅ ${producto.producto} agregado al carrito`);
+        return;
+    }
+    
+    // Obtener el teléfono del vendedor del primer producto en el carrito
+    const vendedorActual = carrito[0].telefono;
+    const telefonoNuevo = producto.telefono || '';
+    
+    // Verificar si es el mismo vendedor
+    if (vendedorActual !== telefonoNuevo) {
+        // Diferente vendedor - mostrar mensaje de error
+        mostrarNotificacionCarrito(`⚠️ Solo puedes comprar productos de un vendedor a la vez. Elimina el carrito actual o finaliza tu compra antes de comprar a otro vendedor.`, 'error');
+        return;
+    }
+    
+    // Mismo vendedor, verificar si el producto ya existe
     const existe = carrito.find(item => item._id === producto._id);
     
     if (existe) {
@@ -24,8 +54,8 @@ function agregarAlCarrito(producto) {
             producto: producto.producto,
             precio: producto.precio,
             foto: producto.foto,
-            telefono: producto.telefono,
-            nombre: producto.nombre,
+            telefono: producto.telefono || '',
+            nombre: producto.nombre || 'Vendedor',
             cantidad: 1
         });
     }
@@ -33,6 +63,15 @@ function agregarAlCarrito(producto) {
     guardarCarrito();
     actualizarCarrito();
     mostrarNotificacionCarrito(`✅ ${producto.producto} agregado al carrito`);
+}
+
+function limpiarCarrito() {
+    if (confirm('¿Estás seguro de que quieres vaciar el carrito?')) {
+        carrito = [];
+        guardarCarrito();
+        actualizarCarrito();
+        mostrarNotificacionCarrito('🗑️ Carrito vaciado');
+    }
 }
 
 function eliminarDelCarrito(id) {
@@ -135,11 +174,18 @@ function actualizarCarrito() {
     }
 }
 
-function mostrarNotificacionCarrito(mensaje) {
+function mostrarNotificacionCarrito(mensaje, tipo = 'success') {
     const notificacion = document.createElement('div');
     notificacion.className = 'notificacion-carrito';
+    
+    if (tipo === 'error') {
+        notificacion.style.background = '#dc3545';
+    } else {
+        notificacion.style.background = '#28a745';
+    }
+    
     notificacion.innerHTML = `
-        <i class="fas fa-shopping-cart"></i>
+        <i class="fas ${tipo === 'error' ? 'fa-exclamation-triangle' : 'fa-shopping-cart'}"></i>
         <span>${mensaje}</span>
     `;
     document.body.appendChild(notificacion);
@@ -149,7 +195,7 @@ function mostrarNotificacionCarrito(mensaje) {
         setTimeout(() => {
             notificacion.classList.remove('mostrar');
             setTimeout(() => notificacion.remove(), 300);
-        }, 2000);
+        }, 3000);
     }, 10);
 }
 
@@ -202,76 +248,54 @@ async function finalizarCompra() {
         return;
     }
     
-    // Agrupar productos por vendedor
-    const pedidosPorVendedor = {};
+    // Obtener información del vendedor (del primer producto)
+    const vendedor = {
+        telefono: carrito[0].telefono,
+        nombre: carrito[0].nombre
+    };
     
-    carrito.forEach(item => {
-        const telefonoVendedor = item.telefono || '';
-        if (!pedidosPorVendedor[telefonoVendedor]) {
-            pedidosPorVendedor[telefonoVendedor] = {
-                telefono: telefonoVendedor,
-                nombre: item.nombre || 'Vendedor',
-                productos: []
-            };
-        }
-        pedidosPorVendedor[telefonoVendedor].productos.push(item);
-    });
+    let telefonoLimpio = vendedor.telefono.replace(/\D/g, '');
     
-    const vendedores = Object.keys(pedidosPorVendedor);
-    
-    // Confirmar con el usuario
-    let mensajeConfirmacion = `📦 Tu pedido se enviará a ${vendedores.length} vendedor(es):\n\n`;
-    for (const telefono in pedidosPorVendedor) {
-        const vendedor = pedidosPorVendedor[telefono];
-        const totalVendedor = vendedor.productos.reduce((sum, p) => sum + (p.precio * p.cantidad), 0);
-        mensajeConfirmacion += `👤 ${vendedor.nombre}: C$${totalVendedor.toLocaleString()}\n`;
+    if (telefonoLimpio.length === 8) {
+        telefonoLimpio = '505' + telefonoLimpio;
     }
-    mensajeConfirmacion += `\n¿Deseas continuar?`;
     
-    if (!confirm(mensajeConfirmacion)) {
+    if (telefonoLimpio.length < 8) {
+        alert('❌ El vendedor no tiene un número de teléfono válido');
         return;
     }
     
-    // Enviar mensaje a cada vendedor
-    for (const telefono in pedidosPorVendedor) {
-        const vendedor = pedidosPorVendedor[telefono];
-        let telefonoLimpio = telefono.replace(/\D/g, '');
+    const total = calcularTotal();
+    
+    // Construir mensaje
+    let mensaje = `*NUEVO PEDIDO - NicaEmprende*%0A`;
+    mensaje += `*Cliente:* ${nombre}%0A`;
+    mensaje += `*Dirección:* ${direccion}%0A`;
+    mensaje += `*Vendedor:* ${vendedor.nombre}%0A`;
+    mensaje += `%0A*PRODUCTOS:*%0A`;
+    
+    carrito.forEach(item => {
+        mensaje += `- ${item.producto} x${item.cantidad} = C$${(item.precio * item.cantidad).toLocaleString()}%0A`;
+    });
+    
+    mensaje += `%0A*TOTAL: C$${total.toLocaleString()}*%0A`;
+    mensaje += `%0A¡Gracias por apoyar a los emprendedores nicaragüenses!`;
+    
+    // Confirmar antes de enviar
+    if (confirm(`📦 Pedido para: ${vendedor.nombre}\nTotal: C$${total.toLocaleString()}\n\n¿Enviar por WhatsApp?`)) {
+        window.open(`https://wa.me/${telefonoLimpio}?text=${mensaje}`, '_blank');
         
-        if (telefonoLimpio.length === 8) {
-            telefonoLimpio = '505' + telefonoLimpio;
-        }
+        // Limpiar carrito
+        carrito = [];
+        guardarCarrito();
+        actualizarCarrito();
+        cerrarCheckout();
         
-        const totalVendedor = vendedor.productos.reduce((sum, p) => sum + (p.precio * p.cantidad), 0);
+        document.getElementById('checkoutNombre').value = '';
+        document.getElementById('checkoutDireccion').value = '';
         
-        let mensaje = `*NUEVO PEDIDO - NicaEmprende*%0A`;
-        mensaje += `*Cliente:* ${nombre}%0A`;
-        mensaje += `*Dirección:* ${direccion}%0A`;
-        mensaje += `*Vendedor:* ${vendedor.nombre}%0A`;
-        mensaje += `%0A*PRODUCTOS:*%0A`;
-        
-        vendedor.productos.forEach(item => {
-            mensaje += `- ${item.producto} x${item.cantidad} = C$${(item.precio * item.cantidad).toLocaleString()}%0A`;
-        });
-        
-        mensaje += `%0A*TOTAL: C$${totalVendedor.toLocaleString()}*%0A`;
-        mensaje += `%0A¡Gracias por apoyar a los emprendedores nicaragüenses!`;
-        
-        if (telefonoLimpio && telefonoLimpio.length >= 8) {
-            window.open(`https://wa.me/${telefonoLimpio}?text=${mensaje}`, '_blank');
-            await new Promise(resolve => setTimeout(resolve, 800));
-        }
+        mostrarNotificacionCarrito('✅ Pedido enviado. ¡Gracias por tu compra!');
     }
-    
-    // Limpiar carrito
-    carrito = [];
-    guardarCarrito();
-    actualizarCarrito();
-    cerrarCheckout();
-    
-    document.getElementById('checkoutNombre').value = '';
-    document.getElementById('checkoutDireccion').value = '';
-    
-    mostrarNotificacionCarrito(`✅ Pedidos enviados a ${vendedores.length} vendedor(es)`);
 }
 window.onclick = function(event) {
     const carritoModal = document.getElementById('carritoModal');
