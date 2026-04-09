@@ -388,11 +388,15 @@ async function abrirEditar(id) {
     document.getElementById("editLat").value = producto.lat || "";
     document.getElementById("EditLng").value = producto.lng || "";
     
+    // Mostrar imagen actual con timestamp para evitar caché
     const fotoActualDiv = document.getElementById("fotoActual");
-    if (producto.foto) {
-      fotoActualDiv.innerHTML = `<img src="${API}/uploads/${producto.foto}" style="width:100px; border-radius:8px;"><br><small>Foto actual</small>`;
+    if (producto.foto && producto.foto !== "") {
+      fotoActualDiv.innerHTML = `
+        <img src="${API}/uploads/${producto.foto}?t=${Date.now()}" style="width:100px; border-radius:8px; margin-top:10px;">
+        <br><small class="text-muted">Foto actual</small>
+      `;
     } else {
-      fotoActualDiv.innerHTML = "<small>Sin foto actual</small>";
+      fotoActualDiv.innerHTML = '<small class="text-muted">Sin foto actual</small>';
     }
     
     editModal = new bootstrap.Modal(document.getElementById('editModal'));
@@ -431,22 +435,20 @@ async function guardarEdicion() {
     
     if (res.ok) {
       mostrarNotificacion("✅ Producto actualizado exitosamente", "success");
-      editModal.hide();
+      
+      // Cerrar modal
+      const modal = bootstrap.Modal.getInstance(document.getElementById('editModal'));
+      modal.hide();
       
       // Limpiar el input de archivo
       document.getElementById("editFoto").value = "";
       
-      // Recargar ambas listas
-      await cargarProductos();
-      await cargarMisProductos();
+      // Esperar un momento y recargar
+      setTimeout(() => {
+        cargarProductos();
+        cargarMisProductos();
+      }, 500);
       
-      // Forzar actualización de la imagen en el modal si está abierto
-      if (data.producto && data.producto.foto) {
-        const fotoActualDiv = document.getElementById("fotoActual");
-        if (fotoActualDiv) {
-          fotoActualDiv.innerHTML = `<img src="${API}/uploads/${data.producto.foto}?t=${Date.now()}" style="width:100px; border-radius:8px;"><br><small>Foto actual</small>`;
-        }
-      }
     } else {
       mostrarNotificacion("❌ " + (data.error || "Error al actualizar"), "error");
     }
@@ -585,6 +587,9 @@ function obtenerMiUbicacion() {
 }
 
 // Variables para los productos originales
+
+
+// Variables para los productos originales
 let todosLosProductos = [];
 
 // Modificar la función cargarProductos() para guardar copia
@@ -601,8 +606,8 @@ async function cargarProductos() {
     // Guardar copia de todos los productos
     todosLosProductos = productos;
     
-    // Aplicar filtros si existen
-    aplicarFiltros();
+    // Mostrar todos los productos
+    mostrarProductosEnPantalla(productos);
     
   } catch (error) {
     console.error("Error:", error);
@@ -610,45 +615,53 @@ async function cargarProductos() {
   }
 }
 
-// Función para aplicar filtros
-function aplicarFiltros() {
-  const filtroProducto = document.getElementById("buscarProducto")?.value.toLowerCase() || "";
-  const filtroVendedor = document.getElementById("buscarVendedor")?.value.toLowerCase() || "";
-  const filtroFecha = document.getElementById("buscarFecha")?.value;
+// Función de búsqueda
+function buscarProductos() {
+  const textoBusqueda = document.getElementById("buscarTexto")?.value.toLowerCase() || "";
+  const fechaBusqueda = document.getElementById("buscarFecha")?.value;
   
-  let productosFiltrados = [...todosLosProductos];
+  let resultados = [...todosLosProductos];
   
-  // Filtrar por nombre del producto
-  if (filtroProducto) {
-    productosFiltrados = productosFiltrados.filter(p => 
-      p.producto.toLowerCase().includes(filtroProducto)
-    );
-  }
-  
-  // Filtrar por nombre del vendedor
-  if (filtroVendedor) {
-    productosFiltrados = productosFiltrados.filter(p => 
-      (p.nombre || "").toLowerCase().includes(filtroVendedor)
+  // Filtrar por texto (producto o vendedor)
+  if (textoBusqueda) {
+    resultados = resultados.filter(p => 
+      p.producto.toLowerCase().includes(textoBusqueda) ||
+      (p.nombre || "").toLowerCase().includes(textoBusqueda)
     );
   }
   
   // Filtrar por fecha
-  if (filtroFecha) {
-    const fechaBuscar = new Date(filtroFecha).toDateString();
-    productosFiltrados = productosFiltrados.filter(p => {
-      const fechaProducto = new Date(p.createdAt).toDateString();
-      return fechaProducto === fechaBuscar;
+  if (fechaBusqueda) {
+    const fechaInicio = new Date(fechaBusqueda);
+    fechaInicio.setHours(0, 0, 0, 0);
+    const fechaFin = new Date(fechaBusqueda);
+    fechaFin.setHours(23, 59, 59, 999);
+    
+    resultados = resultados.filter(p => {
+      const fechaProducto = new Date(p.createdAt);
+      return fechaProducto >= fechaInicio && fechaProducto <= fechaFin;
     });
   }
   
   // Mostrar resultados
-  mostrarProductosEnPantalla(productosFiltrados);
+  mostrarProductosEnPantalla(resultados);
   
   // Mostrar mensaje si no hay resultados
-  const contenedor = document.getElementById("productos");
-  if (productosFiltrados.length === 0 && contenedor) {
-    contenedor.innerHTML = '<div class="text-center text-muted">No se encontraron productos con esos filtros</div>';
+  if (resultados.length === 0) {
+    const contenedor = document.getElementById("productos");
+    if (contenedor) {
+      contenedor.innerHTML = '<div class="text-center text-muted">🔍 No se encontraron productos con esos criterios</div>';
+    }
   }
+}
+
+// Función para limpiar búsqueda
+function limpiarBusqueda() {
+  document.getElementById("buscarTexto").value = "";
+  document.getElementById("buscarFecha").value = "";
+  
+  // Mostrar todos los productos
+  mostrarProductosEnPantalla(todosLosProductos);
 }
 
 // Función para mostrar productos en pantalla
@@ -659,7 +672,7 @@ function mostrarProductosEnPantalla(productos) {
   contenedor.innerHTML = "";
   
   if (productos.length === 0) {
-    contenedor.innerHTML = '<div class="text-center">No hay productos que coincidan con tu búsqueda</div>';
+    contenedor.innerHTML = '<div class="text-center text-muted">No hay productos disponibles</div>';
     return;
   }
   
@@ -673,11 +686,16 @@ function mostrarProductosEnPantalla(productos) {
     const col = document.createElement("div");
     col.className = "col-md-4 col-lg-3 mb-4 producto-card";
     
-    const fotoUrl = prod.foto ? `${API}/uploads/${prod.foto}` : "https://via.placeholder.com/300x200?text=Sin+Imagen";
+    // Usar timestamp para evitar caché de imágenes
+    const timestamp = Date.now();
+    const fotoUrl = prod.foto && prod.foto !== "" 
+      ? `${API}/uploads/${prod.foto}?t=${timestamp}` 
+      : "https://via.placeholder.com/300x200?text=Sin+Imagen";
     
     col.innerHTML = `
       <div class="card h-100 shadow-sm">
-        <img src="${fotoUrl}" class="card-img-top" alt="${prod.producto}" onerror="this.src='https://via.placeholder.com/300x200?text=Error+Imagen'">
+        <img src="${fotoUrl}" class="card-img-top" style="height:200px; object-fit:cover;" alt="${prod.producto}" 
+             onerror="this.src='https://via.placeholder.com/300x200?text=Error+Imagen'">
         <div class="card-body">
           <h6 class="card-title fw-bold">${prod.producto}</h6>
           <p class="text-success fw-bold fs-5">C$ ${prod.precio.toLocaleString()}</p>
@@ -702,6 +720,7 @@ function mostrarProductosEnPantalla(productos) {
           <b>${prod.producto}</b><br>
           Precio: C$${prod.precio}<br>
           📞 ${prod.telefono}<br>
+          👤 ${prod.nombre || 'Anónimo'}<br>
           <a href="https://wa.me/${prod.telefono}" target="_blank">Contactar por WhatsApp</a>
         `)
         .addTo(map);
@@ -716,33 +735,17 @@ function mostrarProductosEnPantalla(productos) {
   }
 }
 
-// Función para limpiar filtros
-function limpiarFiltros() {
-  document.getElementById("buscarProducto").value = "";
-  document.getElementById("buscarVendedor").value = "";
-  document.getElementById("buscarFecha").value = "";
-  
-  // Mostrar todos los productos
-  mostrarProductosEnPantalla(todosLosProductos);
-  
-  // Ajustar mapa
-  if (markers.length > 0 && map) {
-    const group = L.featureGroup(markers);
-    map.fitBounds(group.getBounds().pad(0.2));
+// Permitir búsqueda con Enter
+function iniciarBuscador() {
+  const inputBusqueda = document.getElementById("buscarTexto");
+  if (inputBusqueda) {
+    inputBusqueda.addEventListener("keypress", function(e) {
+      if (e.key === "Enter") {
+        buscarProductos();
+      }
+    });
   }
 }
-
-// Agregar event listeners para los filtros
-function iniciarFiltros() {
-  const inputProducto = document.getElementById("buscarProducto");
-  const inputVendedor = document.getElementById("buscarVendedor");
-  const inputFecha = document.getElementById("buscarFecha");
-  
-  if (inputProducto) inputProducto.addEventListener("keyup", aplicarFiltros);
-  if (inputVendedor) inputVendedor.addEventListener("keyup", aplicarFiltros);
-  if (inputFecha) inputFecha.addEventListener("change", aplicarFiltros);
-}
-
 
 
 window.onload = () => {
