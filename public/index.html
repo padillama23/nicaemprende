@@ -661,7 +661,40 @@ footer {
   <div id="misProductosList" class="row"></div>
 </div>
 
+<!-- mapa -->
+
 <div id="map"></div>
+
+
+
+<!-- Buscador -->
+
+<!-- BUSCADOR -->
+<div class="card p-3 mb-4 shadow-sm">
+  <div class="row g-3">
+    <div class="col-md-4">
+      <input type="text" id="buscarProducto" class="form-control" placeholder="🔍 Buscar por producto...">
+    </div>
+    <div class="col-md-4">
+      <input type="text" id="buscarVendedor" class="form-control" placeholder="👤 Buscar por vendedor...">
+    </div>
+    <div class="col-md-3">
+      <input type="date" id="buscarFecha" class="form-control">
+    </div>
+    <div class="col-md-1">
+      <button class="btn btn-danger w-100" onclick="limpiarFiltros()">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+  </div>
+</div>
+
+<h4 class="mb-3">🛍️ Productos destacados</h4>
+<div class="row" id="productos"></div>
+
+
+
+<!-- producto-->
 
 <h4 class="mb-3">🛍️ Productos destacados</h4>
 <div class="row" id="productos"></div>

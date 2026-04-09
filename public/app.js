@@ -97,22 +97,29 @@ function mostrarNotificacion(mensaje, tipo = 'info') {
 
 
 
-// Función para cargar los datos del usuario en el formulario
-function cargarDatosUsuarioEnFormulario() {
-  const userTelefono = localStorage.getItem("userTelefono");
-  const userNombre = localStorage.getItem("userNombre");
+function verificarLogin() {
+  const token = localStorage.getItem("token");
+  const formPublicar = document.getElementById("formPublicar");
+  const misPublicaciones = document.getElementById("misPublicaciones");
+  const userTabs = document.getElementById("userTabs");
+  const btnLogout = document.getElementById("btnLogout");
   
-  const telInput = document.getElementById("tel");
-  const nombreInput = document.getElementById("nombre");
-  
-  if (telInput && userTelefono) {
-    telInput.value = userTelefono;
-    console.log("📞 Teléfono cargado:", userTelefono);
-  }
-  
-  if (nombreInput && userNombre) {
-    nombreInput.value = userNombre;
-    console.log("👤 Nombre cargado:", userNombre);
+  if (token) {
+    if (userTabs) userTabs.style.display = "block";
+    if (btnLogout) btnLogout.style.display = "block";
+    
+    // Cargar datos del usuario directamente
+    cargarDatosUsuarioEnFormulario();
+    
+    // Mostrar la pestaña de publicar por defecto
+    mostrarTab('publicar');
+    cargarMisProductos();
+    
+  } else {
+    if (userTabs) userTabs.style.display = "none";
+    if (formPublicar) formPublicar.style.display = "none";
+    if (misPublicaciones) misPublicaciones.style.display = "none";
+    if (btnLogout) btnLogout.style.display = "none";
   }
 }
 
@@ -128,7 +135,7 @@ function mostrarTab(tab) {
     misPublicaciones.style.display = "none";
     if (event && event.target) event.target.classList.add('active');
     
-    // Cargar los datos del usuario al abrir el formulario
+    // Cargar datos CADA VEZ que se abre la pestaña
     cargarDatosUsuarioEnFormulario();
     
   } else {
@@ -139,28 +146,21 @@ function mostrarTab(tab) {
   }
 }
 
-function verificarLogin() {
-  const token = localStorage.getItem("token");
-  const formPublicar = document.getElementById("formPublicar");
-  const misPublicaciones = document.getElementById("misPublicaciones");
-  const userTabs = document.getElementById("userTabs");
-  const btnLogout = document.getElementById("btnLogout");
+function cargarDatosUsuarioEnFormulario() {
+  const userTelefono = localStorage.getItem("userTelefono");
+  const userNombre = localStorage.getItem("userNombre");
   
-  if (token) {
-    if (userTabs) userTabs.style.display = "block";
-    if (formPublicar) formPublicar.style.display = "block";
-    if (btnLogout) btnLogout.style.display = "block";
-    mostrarTab('publicar');
-    cargarMisProductos();
-    
-    // Cargar datos del usuario
-    cargarDatosUsuarioEnFormulario();
-    
-  } else {
-    if (userTabs) userTabs.style.display = "none";
-    if (formPublicar) formPublicar.style.display = "none";
-    if (misPublicaciones) misPublicaciones.style.display = "none";
-    if (btnLogout) btnLogout.style.display = "none";
+  const telInput = document.getElementById("tel");
+  const nombreInput = document.getElementById("nombre");
+  
+  if (telInput) {
+    telInput.value = userTelefono || '';
+    console.log("📞 Teléfono cargado:", userTelefono);
+  }
+  
+  if (nombreInput) {
+    nombreInput.value = userNombre || '';
+    console.log("👤 Nombre cargado:", userNombre);
   }
 }
 
@@ -432,8 +432,21 @@ async function guardarEdicion() {
     if (res.ok) {
       mostrarNotificacion("✅ Producto actualizado exitosamente", "success");
       editModal.hide();
-      cargarProductos();
-      cargarMisProductos();
+      
+      // Limpiar el input de archivo
+      document.getElementById("editFoto").value = "";
+      
+      // Recargar ambas listas
+      await cargarProductos();
+      await cargarMisProductos();
+      
+      // Forzar actualización de la imagen en el modal si está abierto
+      if (data.producto && data.producto.foto) {
+        const fotoActualDiv = document.getElementById("fotoActual");
+        if (fotoActualDiv) {
+          fotoActualDiv.innerHTML = `<img src="${API}/uploads/${data.producto.foto}?t=${Date.now()}" style="width:100px; border-radius:8px;"><br><small>Foto actual</small>`;
+        }
+      }
     } else {
       mostrarNotificacion("❌ " + (data.error || "Error al actualizar"), "error");
     }
@@ -571,7 +584,169 @@ function obtenerMiUbicacion() {
   }
 }
 
+// Variables para los productos originales
+let todosLosProductos = [];
+
+// Modificar la función cargarProductos() para guardar copia
+async function cargarProductos() {
+  const contenedor = document.getElementById("productos");
+  if (!contenedor) return;
+  
+  contenedor.innerHTML = '<div class="text-center"><div class="spinner-border text-primary"></div><p>Cargando productos...</p></div>';
+  
+  try {
+    const res = await fetch(`${API}/productos`);
+    const productos = await res.json();
+    
+    // Guardar copia de todos los productos
+    todosLosProductos = productos;
+    
+    // Aplicar filtros si existen
+    aplicarFiltros();
+    
+  } catch (error) {
+    console.error("Error:", error);
+    contenedor.innerHTML = '<div class="text-danger text-center">❌ Error al cargar productos</div>';
+  }
+}
+
+// Función para aplicar filtros
+function aplicarFiltros() {
+  const filtroProducto = document.getElementById("buscarProducto")?.value.toLowerCase() || "";
+  const filtroVendedor = document.getElementById("buscarVendedor")?.value.toLowerCase() || "";
+  const filtroFecha = document.getElementById("buscarFecha")?.value;
+  
+  let productosFiltrados = [...todosLosProductos];
+  
+  // Filtrar por nombre del producto
+  if (filtroProducto) {
+    productosFiltrados = productosFiltrados.filter(p => 
+      p.producto.toLowerCase().includes(filtroProducto)
+    );
+  }
+  
+  // Filtrar por nombre del vendedor
+  if (filtroVendedor) {
+    productosFiltrados = productosFiltrados.filter(p => 
+      (p.nombre || "").toLowerCase().includes(filtroVendedor)
+    );
+  }
+  
+  // Filtrar por fecha
+  if (filtroFecha) {
+    const fechaBuscar = new Date(filtroFecha).toDateString();
+    productosFiltrados = productosFiltrados.filter(p => {
+      const fechaProducto = new Date(p.createdAt).toDateString();
+      return fechaProducto === fechaBuscar;
+    });
+  }
+  
+  // Mostrar resultados
+  mostrarProductosEnPantalla(productosFiltrados);
+  
+  // Mostrar mensaje si no hay resultados
+  const contenedor = document.getElementById("productos");
+  if (productosFiltrados.length === 0 && contenedor) {
+    contenedor.innerHTML = '<div class="text-center text-muted">No se encontraron productos con esos filtros</div>';
+  }
+}
+
+// Función para mostrar productos en pantalla
+function mostrarProductosEnPantalla(productos) {
+  const contenedor = document.getElementById("productos");
+  if (!contenedor) return;
+  
+  contenedor.innerHTML = "";
+  
+  if (productos.length === 0) {
+    contenedor.innerHTML = '<div class="text-center">No hay productos que coincidan con tu búsqueda</div>';
+    return;
+  }
+  
+  // Limpiar marcadores del mapa
+  if (markers) {
+    markers.forEach(marker => map.removeLayer(marker));
+    markers = [];
+  }
+  
+  productos.forEach(prod => {
+    const col = document.createElement("div");
+    col.className = "col-md-4 col-lg-3 mb-4 producto-card";
+    
+    const fotoUrl = prod.foto ? `${API}/uploads/${prod.foto}` : "https://via.placeholder.com/300x200?text=Sin+Imagen";
+    
+    col.innerHTML = `
+      <div class="card h-100 shadow-sm">
+        <img src="${fotoUrl}" class="card-img-top" alt="${prod.producto}" onerror="this.src='https://via.placeholder.com/300x200?text=Error+Imagen'">
+        <div class="card-body">
+          <h6 class="card-title fw-bold">${prod.producto}</h6>
+          <p class="text-success fw-bold fs-5">C$ ${prod.precio.toLocaleString()}</p>
+          <p class="small text-muted">👤 ${prod.nombre || 'Anónimo'}</p>
+          <p class="small text-muted">📅 ${new Date(prod.createdAt).toLocaleDateString('es-ES')}</p>
+          <button onclick='agregarAlCarrito(${JSON.stringify(prod).replace(/\\/g, '\\\\')})' class="btn-agregar-carrito w-100">
+            <i class="fas fa-cart-plus"></i> Agregar al carrito
+          </button>
+          <a href="https://wa.me/${prod.telefono}" target="_blank" class="btn btn-whatsapp btn-sm w-100 mt-2">
+            💬 Contactar vendedor
+          </a>
+        </div>
+      </div>
+    `;
+    
+    contenedor.appendChild(col);
+    
+    // Agregar marcador al mapa
+    if (prod.lat && prod.lng && map) {
+      const marker = L.marker([prod.lat, prod.lng])
+        .bindPopup(`
+          <b>${prod.producto}</b><br>
+          Precio: C$${prod.precio}<br>
+          📞 ${prod.telefono}<br>
+          <a href="https://wa.me/${prod.telefono}" target="_blank">Contactar por WhatsApp</a>
+        `)
+        .addTo(map);
+      markers.push(marker);
+    }
+  });
+  
+  // Ajustar mapa a los marcadores
+  if (markers.length > 0 && map) {
+    const group = L.featureGroup(markers);
+    map.fitBounds(group.getBounds().pad(0.2));
+  }
+}
+
+// Función para limpiar filtros
+function limpiarFiltros() {
+  document.getElementById("buscarProducto").value = "";
+  document.getElementById("buscarVendedor").value = "";
+  document.getElementById("buscarFecha").value = "";
+  
+  // Mostrar todos los productos
+  mostrarProductosEnPantalla(todosLosProductos);
+  
+  // Ajustar mapa
+  if (markers.length > 0 && map) {
+    const group = L.featureGroup(markers);
+    map.fitBounds(group.getBounds().pad(0.2));
+  }
+}
+
+// Agregar event listeners para los filtros
+function iniciarFiltros() {
+  const inputProducto = document.getElementById("buscarProducto");
+  const inputVendedor = document.getElementById("buscarVendedor");
+  const inputFecha = document.getElementById("buscarFecha");
+  
+  if (inputProducto) inputProducto.addEventListener("keyup", aplicarFiltros);
+  if (inputVendedor) inputVendedor.addEventListener("keyup", aplicarFiltros);
+  if (inputFecha) inputFecha.addEventListener("change", aplicarFiltros);
+}
+
+
+
 window.onload = () => {
   initMap();
   verificarLogin();
+  iniciarFiltros(); // Iniciar los filtros
 };
