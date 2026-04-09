@@ -130,6 +130,26 @@ function verificarLogin() {
   }
 }
 
+function cargarDatosUsuarioEnFormulario() {
+  const userTelefono = localStorage.getItem("userTelefono");
+  const userNombre = localStorage.getItem("userNombre");
+  
+  const telInput = document.getElementById("tel");
+  const nombreInput = document.getElementById("nombre");
+  
+  if (telInput && userTelefono) {
+    telInput.value = userTelefono;
+    console.log("📞 Teléfono cargado:", userTelefono);
+  }
+  
+  if (nombreInput && userNombre) {
+    nombreInput.value = userNombre;
+    console.log("👤 Nombre cargado:", userNombre);
+  }
+}
+
+
+
 function mostrarTab(tab) {
   const formPublicar = document.getElementById("formPublicar");
   const misPublicaciones = document.getElementById("misPublicaciones");
@@ -141,6 +161,10 @@ function mostrarTab(tab) {
     formPublicar.style.display = "block";
     misPublicaciones.style.display = "none";
     if (event && event.target) event.target.classList.add('active');
+    
+    // 🔥 NUEVO: Cargar los datos del usuario al abrir el formulario
+    cargarDatosUsuarioEnFormulario();
+    
   } else {
     formPublicar.style.display = "none";
     misPublicaciones.style.display = "block";
@@ -148,6 +172,35 @@ function mostrarTab(tab) {
     cargarMisProductos();
   }
 }
+
+
+
+function verificarLogin() {
+  const token = localStorage.getItem("token");
+  const formPublicar = document.getElementById("formPublicar");
+  const misPublicaciones = document.getElementById("misPublicaciones");
+  const userTabs = document.getElementById("userTabs");
+  const btnLogout = document.getElementById("btnLogout");
+  
+  if (token) {
+    if (userTabs) userTabs.style.display = "block";
+    if (formPublicar) formPublicar.style.display = "block";
+    if (btnLogout) btnLogout.style.display = "block";
+    mostrarTab('publicar');
+    cargarMisProductos();
+    
+    // 🔥 Cargar datos del usuario
+    cargarDatosUsuarioEnFormulario();
+    
+  } else {
+    if (userTabs) userTabs.style.display = "none";
+    if (formPublicar) formPublicar.style.display = "none";
+    if (misPublicaciones) misPublicaciones.style.display = "none";
+    if (btnLogout) btnLogout.style.display = "none";
+  }
+}
+
+
 
 async function registrarUsuario() {
   const nombre = document.getElementById("nombreR").value;
