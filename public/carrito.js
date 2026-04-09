@@ -81,19 +81,67 @@ function eliminarDelCarrito(id) {
     mostrarNotificacionCarrito(`❌ Producto eliminado del carrito`);
 }
 
-function actualizarCantidad(id, nuevaCantidad) {
-    const item = carrito.find(item => item._id === id);
-    if (item) {
-        if (nuevaCantidad <= 0) {
-            eliminarDelCarrito(id);
-        } else {
-            item.cantidad = nuevaCantidad;
-            guardarCarrito();
-            actualizarCarrito();
+function actualizarCarrito() {
+    const contador = document.getElementById('carritoContador');
+    const carritoItems = document.getElementById('carritoItems');
+    const carritoTotal = document.getElementById('carritoTotal');
+    
+    // Calcular total de items y precio
+    const totalItems = carrito.reduce((sum, item) => sum + item.cantidad, 0);
+    const totalPrecio = carrito.reduce((sum, item) => sum + (item.precio * item.cantidad), 0);
+    
+    // Actualizar contador del ícono del carrito
+    if (contador) {
+        contador.textContent = totalItems;
+        const badge = document.querySelector('.carrito-badge');
+        if (badge) {
+            badge.style.display = totalItems > 0 ? 'flex' : 'none';
         }
     }
+    
+    // Actualizar el total dentro del carrito
+    if (carritoTotal) {
+        carritoTotal.textContent = `C$ ${totalPrecio.toLocaleString()}`;
+    }
+    
+    // Actualizar la lista de productos en el carrito
+    if (carritoItems) {
+        if (carrito.length === 0) {
+            carritoItems.innerHTML = '<div class="text-center p-4">🛒 El carrito está vacío</div>';
+            return;
+        }
+        
+        carritoItems.innerHTML = '';
+        
+        carrito.forEach(item => {
+            const fotoUrl = item.foto ? `${API}/uploads/${item.foto}` : 'https://via.placeholder.com/50';
+            const subtotal = item.precio * item.cantidad;
+            
+            const itemDiv = document.createElement('div');
+            itemDiv.className = 'carrito-item';
+            itemDiv.innerHTML = `
+                <img src="${fotoUrl}" class="carrito-item-img" alt="${item.producto}">
+                <div class="carrito-item-info">
+                    <div class="carrito-item-titulo">${item.producto}</div>
+                    <div class="carrito-item-precio">C$ ${item.precio.toLocaleString()}</div>
+                    <div class="carrito-item-vendedor">👤 ${item.nombre || 'Emprendedor'}</div>
+                </div>
+                <div class="carrito-item-cantidad">
+                    <button class="btn-cantidad" onclick="actualizarCantidad('${item._id}', ${item.cantidad - 1})">-</button>
+                    <span class="cantidad-numero">${item.cantidad}</span>
+                    <button class="btn-cantidad" onclick="actualizarCantidad('${item._id}', ${item.cantidad + 1})">+</button>
+                </div>
+                <div class="carrito-item-subtotal">
+                    C$ ${subtotal.toLocaleString()}
+                </div>
+                <button class="btn-eliminar-item" onclick="eliminarDelCarrito('${item._id}')">
+                    <i class="fas fa-trash"></i>
+                </button>
+            `;
+            carritoItems.appendChild(itemDiv);
+        });
+    }
 }
-
 function calcularTotal() {
     return carrito.reduce((total, item) => total + (item.precio * item.cantidad), 0);
 }
