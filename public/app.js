@@ -95,41 +95,9 @@ function mostrarNotificacion(mensaje, tipo = 'info') {
   setTimeout(() => notificacion.remove(), 3000);
 }
 
-function verificarLogin() {
-  const token = localStorage.getItem("token");
-  const formPublicar = document.getElementById("formPublicar");
-  const misPublicaciones = document.getElementById("misPublicaciones");
-  const userTabs = document.getElementById("userTabs");
-  const btnLogout = document.getElementById("btnLogout");
-  
-  if (token) {
-    if (userTabs) userTabs.style.display = "block";
-    if (formPublicar) formPublicar.style.display = "block";
-    if (btnLogout) btnLogout.style.display = "block";
-    mostrarTab('publicar');
-    cargarMisProductos();
-    
-    // AUTOCOMPLETAR el teléfono y nombre del vendedor
-    const userTelefono = localStorage.getItem("userTelefono");
-    const userNombre = localStorage.getItem("userNombre");
-    
-    if (userTelefono) {
-      const telInput = document.getElementById("tel");
-      if (telInput) telInput.value = userTelefono;
-    }
-    
-    if (userNombre) {
-      const nombreInput = document.getElementById("nombre");
-      if (nombreInput) nombreInput.value = userNombre;
-    }
-  } else {
-    if (userTabs) userTabs.style.display = "none";
-    if (formPublicar) formPublicar.style.display = "none";
-    if (misPublicaciones) misPublicaciones.style.display = "none";
-    if (btnLogout) btnLogout.style.display = "none";
-  }
-}
 
+
+// Función para cargar los datos del usuario en el formulario
 function cargarDatosUsuarioEnFormulario() {
   const userTelefono = localStorage.getItem("userTelefono");
   const userNombre = localStorage.getItem("userNombre");
@@ -148,8 +116,6 @@ function cargarDatosUsuarioEnFormulario() {
   }
 }
 
-
-
 function mostrarTab(tab) {
   const formPublicar = document.getElementById("formPublicar");
   const misPublicaciones = document.getElementById("misPublicaciones");
@@ -162,7 +128,7 @@ function mostrarTab(tab) {
     misPublicaciones.style.display = "none";
     if (event && event.target) event.target.classList.add('active');
     
-    // 🔥 NUEVO: Cargar los datos del usuario al abrir el formulario
+    // Cargar los datos del usuario al abrir el formulario
     cargarDatosUsuarioEnFormulario();
     
   } else {
@@ -172,8 +138,6 @@ function mostrarTab(tab) {
     cargarMisProductos();
   }
 }
-
-
 
 function verificarLogin() {
   const token = localStorage.getItem("token");
@@ -189,7 +153,7 @@ function verificarLogin() {
     mostrarTab('publicar');
     cargarMisProductos();
     
-    // 🔥 Cargar datos del usuario
+    // Cargar datos del usuario
     cargarDatosUsuarioEnFormulario();
     
   } else {
@@ -199,8 +163,6 @@ function verificarLogin() {
     if (btnLogout) btnLogout.style.display = "none";
   }
 }
-
-
 
 async function registrarUsuario() {
   const nombre = document.getElementById("nombreR").value;
