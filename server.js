@@ -134,38 +134,64 @@ app.post("/login", async (req, res) => {
   });
 });
 
-// 🔥 PUBLICAR PRODUCTO CON IMAGEKIT
+// PUBLICAR PRODUCTO CON IMAGEKIT
 app.post("/producto", auth, upload.single("foto"), async (req, res) => {
   try {
+    console.log("=".repeat(50));
+    console.log("📦 PUBLICANDO PRODUCTO");
+    console.log("=".repeat(50));
+    
     const { nombre, telefono, producto, precio, lat, lng } = req.body;
+    
+    console.log("Datos del producto:", { nombre, telefono, producto, precio });
     
     if (!producto || !precio) {
       return res.status(400).json({ error: "Producto y precio son obligatorios" });
     }
     
     if (!telefono) {
-      return res.status(400).json({ error: "El teléfono es obligatorio para contacto" });
+      return res.status(400).json({ error: "El teléfono es obligatorio" });
     }
     
     let imageUrl = "";
     
-    // Subir imagen a ImageKit si existe
+    // Verificar si hay archivo
+    console.log("Archivo recibido:", req.file ? "SÍ" : "NO");
+    
     if (req.file) {
-      console.log("📸 Subiendo imagen a ImageKit...");
+      console.log("📸 Detalles del archivo:");
+      console.log("  - Nombre original:", req.file.originalname);
+      console.log("  - Tamaño:", req.file.size, "bytes");
+      console.log("  - Tipo MIME:", req.file.mimetype);
+      console.log("  - Buffer tamaño:", req.file.buffer ? req.file.buffer.length : 0);
+      
+      console.log("📤 Subiendo imagen a ImageKit...");
       
       try {
         const result = await imagekit.upload({
           file: req.file.buffer.toString('base64'),
-          fileName: Date.now() + '-' + req.file.originalname,
+          fileName: Date.now() + '-' + req.file.originalname.replace(/[^a-zA-Z0-9.]/g, '_'),
           folder: "/nicaemprende",
-          useUniqueFileName: true
+          useUniqueFileName: true,
+          tags: ["nicaemprende", "producto"]
         });
         
         imageUrl = result.url;
-        console.log("✅ Imagen subida:", imageUrl);
+        console.log("✅ Imagen subida exitosamente!");
+        console.log("   URL:", imageUrl);
+        console.log("   ID:", result.fileId);
+        console.log("   Tamaño:", result.size, "bytes");
       } catch (uploadError) {
-        console.error("Error al subir a ImageKit:", uploadError);
+        console.error("❌ ERROR al subir a ImageKit:");
+        console.error("   Mensaje:", uploadError.message);
+        console.error("   Código:", uploadError.code);
+        if (uploadError.response) {
+          console.error("   Respuesta:", uploadError.response.data);
+        }
+        // No detenemos el proceso, guardamos producto sin imagen
       }
+    } else {
+      console.log("⚠️ No se recibió archivo de imagen");
     }
     
     const nuevo = new Producto({
@@ -180,13 +206,23 @@ app.post("/producto", auth, upload.single("foto"), async (req, res) => {
     });
 
     await nuevo.save();
-    console.log("✅ Producto guardado");
+    console.log("✅ Producto guardado en MongoDB");
+    console.log("   ID:", nuevo._id);
+    console.log("   Foto URL guardada:", imageUrl || "(sin imagen)");
+    console.log("=".repeat(50));
     
-    res.json({ mensaje: "Producto publicado", producto: nuevo });
+    res.json({ 
+      mensaje: "Producto publicado", 
+      producto: {
+        ...nuevo.toObject(),
+        fotoUrl: imageUrl
+      }
+    });
     
   } catch (error) {
-    console.error("Error:", error);
-    res.status(500).json({ error: "Error al publicar el producto" });
+    console.error("❌ ERROR GENERAL:");
+    console.error(error);
+    res.status(500).json({ error: "Error al publicar el producto: " + error.message });
   }
 });
 
