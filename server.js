@@ -6,7 +6,7 @@ const path = require("path");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const fs = require("fs");
-const ImageKit = require('imagekitio');
+const ImageKit = require('imagekit');
 
 const app = express();
 const SECRET = "nica_secreto";
