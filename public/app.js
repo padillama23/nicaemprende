@@ -32,7 +32,6 @@ function togglePassword(inputId, button) {
     icon.classList.remove('fa-eye');
     icon.classList.add('fa-eye-slash');
     
-    // Efecto visual
     input.style.transition = 'all 0.3s';
     input.style.backgroundColor = '#fff9c4';
     setTimeout(() => {
@@ -43,7 +42,6 @@ function togglePassword(inputId, button) {
     icon.classList.remove('fa-eye-slash');
     icon.classList.add('fa-eye');
     
-    // Efecto visual
     input.style.transition = 'all 0.3s';
     input.style.backgroundColor = '#fff9c4';
     setTimeout(() => {
@@ -95,8 +93,6 @@ function mostrarNotificacion(mensaje, tipo = 'info') {
   setTimeout(() => notificacion.remove(), 3000);
 }
 
-
-
 function verificarLogin() {
   const token = localStorage.getItem("token");
   const formPublicar = document.getElementById("formPublicar");
@@ -108,10 +104,8 @@ function verificarLogin() {
     if (userTabs) userTabs.style.display = "block";
     if (btnLogout) btnLogout.style.display = "block";
     
-    // Cargar datos del usuario directamente
     cargarDatosUsuarioEnFormulario();
     
-    // Mostrar la pestaña de publicar por defecto
     mostrarTab('publicar');
     cargarMisProductos();
     
@@ -135,7 +129,6 @@ function mostrarTab(tab) {
     misPublicaciones.style.display = "none";
     if (event && event.target) event.target.classList.add('active');
     
-    // Cargar datos CADA VEZ que se abre la pestaña
     cargarDatosUsuarioEnFormulario();
     
   } else {
@@ -194,11 +187,9 @@ async function registrarUsuario() {
       document.getElementById("telR").value = "";
       document.getElementById("passR").value = "";
       
-      // Autocompletar login
       document.getElementById("telLogin").value = telefono;
       document.getElementById("passLogin").value = password;
       
-      // Preguntar si quiere iniciar sesión automáticamente
       if (confirm("✅ Usuario creado. ¿Deseas iniciar sesión ahora?")) {
         login();
       }
@@ -230,7 +221,6 @@ async function login() {
     
     if (res.ok && data.token) {
       localStorage.setItem("token", data.token);
-      // Guardar el teléfono del usuario para usarlo al publicar
       localStorage.setItem("userTelefono", data.usuario.telefono);
       localStorage.setItem("userNombre", data.usuario.nombre);
       
@@ -248,6 +238,8 @@ async function login() {
 
 function logout() {
   localStorage.removeItem("token");
+  localStorage.removeItem("userTelefono");
+  localStorage.removeItem("userNombre");
   mostrarNotificacion("👋 Sesión cerrada exitosamente", "success");
   setTimeout(() => {
     window.location.reload();
@@ -339,11 +331,18 @@ async function cargarMisProductos() {
       const col = document.createElement("div");
       col.className = "col-md-6 col-lg-4 mb-3";
       
-      const fotoUrl = prod.foto ? `${API}/uploads/${prod.foto}` : "https://via.placeholder.com/300x200?text=Sin+Imagen";
+      let imagenUrl = "https://via.placeholder.com/300x200?text=Sin+Imagen";
+      if (prod.foto && prod.foto !== "") {
+        if (prod.foto.startsWith('http')) {
+          imagenUrl = prod.foto;
+        } else {
+          imagenUrl = `${API}/uploads/${prod.foto}`;
+        }
+      }
       
       col.innerHTML = `
         <div class="card producto-propio">
-          <img src="${fotoUrl}" class="card-img-top" style="height:180px;object-fit:cover;" alt="${prod.producto}">
+          <img src="${imagenUrl}" class="card-img-top" style="height:180px;object-fit:cover;" alt="${prod.producto}" onerror="this.src='https://via.placeholder.com/300x200?text=Error+Imagen'">
           <div class="card-body">
             <h6 class="card-title">${prod.producto}</h6>
             <p class="text-success fw-bold">C$ ${prod.precio.toLocaleString()}</p>
@@ -388,11 +387,14 @@ async function abrirEditar(id) {
     document.getElementById("editLat").value = producto.lat || "";
     document.getElementById("EditLng").value = producto.lng || "";
     
-    // Mostrar imagen actual con timestamp para evitar caché
     const fotoActualDiv = document.getElementById("fotoActual");
     if (producto.foto && producto.foto !== "") {
+      let imagenUrl = producto.foto;
+      if (!imagenUrl.startsWith('http')) {
+        imagenUrl = `${API}/uploads/${producto.foto}`;
+      }
       fotoActualDiv.innerHTML = `
-        <img src="${API}/uploads/${producto.foto}?t=${Date.now()}" style="width:100px; border-radius:8px; margin-top:10px;">
+        <img src="${imagenUrl}?t=${Date.now()}" style="width:100px; border-radius:8px; margin-top:10px;">
         <br><small class="text-muted">Foto actual</small>
       `;
     } else {
@@ -436,14 +438,11 @@ async function guardarEdicion() {
     if (res.ok) {
       mostrarNotificacion("✅ Producto actualizado exitosamente", "success");
       
-      // Cerrar modal
       const modal = bootstrap.Modal.getInstance(document.getElementById('editModal'));
       modal.hide();
       
-      // Limpiar el input de archivo
       document.getElementById("editFoto").value = "";
       
-      // Esperar un momento y recargar
       setTimeout(() => {
         cargarProductos();
         cargarMisProductos();
@@ -482,6 +481,9 @@ async function eliminarProducto(id) {
   }
 }
 
+// Variables para los productos originales
+let todosLosProductos = [];
+
 async function cargarProductos() {
   const contenedor = document.getElementById("productos");
   if (!contenedor) return;
@@ -492,77 +494,129 @@ async function cargarProductos() {
     const res = await fetch(`${API}/productos`);
     const productos = await res.json();
     
-    contenedor.innerHTML = "";
-    
-    if (productos.length === 0) {
-      contenedor.innerHTML = '<div class="text-center">No hay productos aún. ¡Sé el primero en publicar!</div>';
-      return;
-    }
-    
-    if (markers) {
-      markers.forEach(marker => map.removeLayer(marker));
-      markers = [];
-    }
-    
-    productos.forEach(prod => {
-      const col = document.createElement("div");
-      col.className = "col-md-4 col-lg-3 mb-4 producto-card";
-      
-      const fotoUrl = prod.foto ? `${API}/uploads/${prod.foto}` : "https://via.placeholder.com/300x200?text=Sin+Imagen";
-      
-      // IMPORTANTE: El teléfono se pasa al carrito
-      col.innerHTML = `
-        <div class="card h-100 shadow-sm">
-          <img src="${fotoUrl}" class="card-img-top" alt="${prod.producto}" onerror="this.src='https://via.placeholder.com/300x200?text=Error+Imagen'">
-          <div class="card-body">
-            <h6 class="card-title fw-bold">${prod.producto}</h6>
-            <p class="text-success fw-bold fs-5">C$ ${prod.precio.toLocaleString()}</p>
-            <p class="small text-muted">👤 ${prod.nombre || 'Anónimo'}</p>
-            <p class="small text-muted">📞 ${prod.telefono || 'Sin teléfono'}</p>
-            <button onclick='agregarAlCarrito({
-              _id: "${prod._id}",
-              producto: "${prod.producto.replace(/"/g, '\\"')}",
-              precio: ${prod.precio},
-              foto: "${prod.foto || ''}",
-              telefono: "${prod.telefono || ''}",
-              nombre: "${(prod.nombre || 'Emprendedor').replace(/"/g, '\\"')}"
-            })' class="btn-agregar-carrito w-100">
-              <i class="fas fa-cart-plus"></i> Agregar al carrito
-            </button>
-            <a href="https://wa.me/${prod.telefono}" target="_blank" class="btn btn-whatsapp btn-sm w-100 mt-2">
-              💬 Contactar vendedor
-            </a>
-          </div>
-          <div class="card-footer text-muted small">
-            📅 ${new Date(prod.createdAt).toLocaleDateString('es-ES')}
-          </div>
-        </div>
-      `;
-      
-      contenedor.appendChild(col);
-      
-      // Resto del código para marcadores...
-      if (prod.lat && prod.lng && map) {
-        const marker = L.marker([prod.lat, prod.lng])
-          .bindPopup(`
-            <b>${prod.producto}</b><br>
-            Precio: C$${prod.precio}<br>
-            📞 ${prod.telefono}<br>
-            <a href="https://wa.me/${prod.telefono}" target="_blank">Contactar por WhatsApp</a>
-          `)
-          .addTo(map);
-        markers.push(marker);
-      }
-    });
-    
-    if (markers.length > 0 && map) {
-      const group = L.featureGroup(markers);
-      map.fitBounds(group.getBounds().pad(0.2));
-    }
+    todosLosProductos = productos;
+    mostrarProductosEnPantalla(productos);
     
   } catch (error) {
     console.error("Error:", error);
     contenedor.innerHTML = '<div class="text-danger text-center">❌ Error al cargar productos</div>';
+  }
+}
+
+// Función de búsqueda
+function buscarProductos() {
+  const textoBusqueda = document.getElementById("buscarTexto")?.value.toLowerCase() || "";
+  const fechaBusqueda = document.getElementById("buscarFecha")?.value;
+  
+  let resultados = [...todosLosProductos];
+  
+  if (textoBusqueda) {
+    resultados = resultados.filter(p => 
+      p.producto.toLowerCase().includes(textoBusqueda) ||
+      (p.nombre || "").toLowerCase().includes(textoBusqueda)
+    );
+  }
+  
+  if (fechaBusqueda) {
+    const fechaInicio = new Date(fechaBusqueda);
+    fechaInicio.setHours(0, 0, 0, 0);
+    const fechaFin = new Date(fechaBusqueda);
+    fechaFin.setHours(23, 59, 59, 999);
+    
+    resultados = resultados.filter(p => {
+      const fechaProducto = new Date(p.createdAt);
+      return fechaProducto >= fechaInicio && fechaProducto <= fechaFin;
+    });
+  }
+  
+  mostrarProductosEnPantalla(resultados);
+  
+  if (resultados.length === 0) {
+    const contenedor = document.getElementById("productos");
+    if (contenedor) {
+      contenedor.innerHTML = '<div class="text-center text-muted">🔍 No se encontraron productos con esos criterios</div>';
+    }
+  }
+}
+
+// Función para limpiar búsqueda
+function limpiarBusqueda() {
+  document.getElementById("buscarTexto").value = "";
+  document.getElementById("buscarFecha").value = "";
+  mostrarProductosEnPantalla(todosLosProductos);
+}
+
+// Función para mostrar productos en pantalla
+function mostrarProductosEnPantalla(productos) {
+  const contenedor = document.getElementById("productos");
+  if (!contenedor) return;
+  
+  contenedor.innerHTML = "";
+  
+  if (productos.length === 0) {
+    contenedor.innerHTML = '<div class="text-center text-muted">No hay productos disponibles</div>';
+    return;
+  }
+  
+  if (markers) {
+    markers.forEach(marker => map.removeLayer(marker));
+    markers = [];
+  }
+  
+  productos.forEach(prod => {
+    const col = document.createElement("div");
+    col.className = "col-md-4 col-lg-3 mb-4 producto-card";
+    
+    // 🔥 CORREGIDO: prod.foto YA ES la URL completa de ImageKit
+    let imagenUrl = "https://via.placeholder.com/300x200?text=Sin+Imagen";
+    
+    if (prod.foto && prod.foto !== "") {
+      if (prod.foto.startsWith('http')) {
+        imagenUrl = prod.foto;
+      } else {
+        imagenUrl = `${API}/uploads/${prod.foto}`;
+      }
+    }
+    
+    col.innerHTML = `
+      <div class="card h-100 shadow-sm">
+        <img src="${imagenUrl}" class="card-img-top" style="height:200px; object-fit:cover;" 
+             alt="${prod.producto}" 
+             onerror="this.onerror=null; this.src='https://via.placeholder.com/300x200?text=Error+Imagen'">
+        <div class="card-body">
+          <h6 class="card-title fw-bold">${prod.producto}</h6>
+          <p class="text-success fw-bold fs-5">C$ ${prod.precio.toLocaleString()}</p>
+          <p class="small text-muted">👤 ${prod.nombre || 'Anónimo'}</p>
+          <p class="small text-muted">📞 ${prod.telefono || 'Sin teléfono'}</p>
+          <p class="small text-muted">📅 ${new Date(prod.createdAt).toLocaleDateString('es-ES')}</p>
+          <button onclick='agregarAlCarrito(${JSON.stringify(prod).replace(/\\/g, '\\\\')})' class="btn-agregar-carrito w-100">
+            <i class="fas fa-cart-plus"></i> Agregar al carrito
+          </button>
+          <a href="https://wa.me/${prod.telefono}" target="_blank" class="btn btn-whatsapp btn-sm w-100 mt-2">
+            💬 Contactar vendedor
+          </a>
+        </div>
+      </div>
+    `;
+    
+    contenedor.appendChild(col);
+    
+    if (prod.lat && prod.lng && map) {
+      const marker = L.marker([prod.lat, prod.lng])
+        .bindPopup(`
+          <b>${prod.producto}</b><br>
+          Precio: C$${prod.precio}<br>
+          📞 ${prod.telefono}<br>
+          <a href="https://wa.me/${prod.telefono}" target="_blank">Contactar por WhatsApp</a>
+        `)
+        .addTo(map);
+      markers.push(marker);
+    }
+  });
+  
+  if (markers.length > 0 && map) {
+    const group = L.featureGroup(markers);
+    map.fitBounds(group.getBounds().pad(0.2));
   }
 }
 
@@ -586,155 +640,6 @@ function obtenerMiUbicacion() {
   }
 }
 
-// Variables para los productos originales
-
-
-// Variables para los productos originales
-let todosLosProductos = [];
-
-// Modificar la función cargarProductos() para guardar copia
-async function cargarProductos() {
-  const contenedor = document.getElementById("productos");
-  if (!contenedor) return;
-  
-  contenedor.innerHTML = '<div class="text-center"><div class="spinner-border text-primary"></div><p>Cargando productos...</p></div>';
-  
-  try {
-    const res = await fetch(`${API}/productos`);
-    const productos = await res.json();
-    
-    // Guardar copia de todos los productos
-    todosLosProductos = productos;
-    
-    // Mostrar todos los productos
-    mostrarProductosEnPantalla(productos);
-    
-  } catch (error) {
-    console.error("Error:", error);
-    contenedor.innerHTML = '<div class="text-danger text-center">❌ Error al cargar productos</div>';
-  }
-}
-
-// Función de búsqueda
-function buscarProductos() {
-  const textoBusqueda = document.getElementById("buscarTexto")?.value.toLowerCase() || "";
-  const fechaBusqueda = document.getElementById("buscarFecha")?.value;
-  
-  let resultados = [...todosLosProductos];
-  
-  // Filtrar por texto (producto o vendedor)
-  if (textoBusqueda) {
-    resultados = resultados.filter(p => 
-      p.producto.toLowerCase().includes(textoBusqueda) ||
-      (p.nombre || "").toLowerCase().includes(textoBusqueda)
-    );
-  }
-  
-  // Filtrar por fecha
-  if (fechaBusqueda) {
-    const fechaInicio = new Date(fechaBusqueda);
-    fechaInicio.setHours(0, 0, 0, 0);
-    const fechaFin = new Date(fechaBusqueda);
-    fechaFin.setHours(23, 59, 59, 999);
-    
-    resultados = resultados.filter(p => {
-      const fechaProducto = new Date(p.createdAt);
-      return fechaProducto >= fechaInicio && fechaProducto <= fechaFin;
-    });
-  }
-  
-  // Mostrar resultados
-  mostrarProductosEnPantalla(resultados);
-  
-  // Mostrar mensaje si no hay resultados
-  if (resultados.length === 0) {
-    const contenedor = document.getElementById("productos");
-    if (contenedor) {
-      contenedor.innerHTML = '<div class="text-center text-muted">🔍 No se encontraron productos con esos criterios</div>';
-    }
-  }
-}
-
-// Función para limpiar búsqueda
-function limpiarBusqueda() {
-  document.getElementById("buscarTexto").value = "";
-  document.getElementById("buscarFecha").value = "";
-  
-  // Mostrar todos los productos
-  mostrarProductosEnPantalla(todosLosProductos);
-}
-
-// Función para mostrar productos en pantalla
-function mostrarProductosEnPantalla(productos) {
-  const contenedor = document.getElementById("productos");
-  if (!contenedor) return;
-  
-  contenedor.innerHTML = "";
-  
-  if (productos.length === 0) {
-    contenedor.innerHTML = '<div class="text-center text-muted">No hay productos disponibles</div>';
-    return;
-  }
-  
-  // Limpiar marcadores del mapa
-  if (markers) {
-    markers.forEach(marker => map.removeLayer(marker));
-    markers = [];
-  }
-  
-  productos.forEach(prod => {
-    const col = document.createElement("div");
-    col.className = "col-md-4 col-lg-3 mb-4 producto-card";
-    
-    // Usar timestamp para evitar caché de imágenes
-    const timestamp = Date.now();
-    const fotoUrl = prod.foto && prod.foto !== "" 
-      ? `${API}/uploads/${prod.foto}?t=${timestamp}` 
-      : "https://via.placeholder.com/300x200?text=Sin+Imagen";
-    
-    col.innerHTML = `
-      <div class="card h-100 shadow-sm">
-        <img src="${fotoUrl}" class="card-img-top" style="height:200px; object-fit:cover;" alt="${prod.producto}" 
-             onerror="this.src='https://via.placeholder.com/300x200?text=Error+Imagen'">
-        <div class="card-body">
-          <h6 class="card-title fw-bold">${prod.producto}</h6>
-          <p class="text-success fw-bold fs-5">C$ ${prod.precio.toLocaleString()}</p>
-          <p class="small text-muted">👤 ${prod.nombre || 'Anónimo'}</p>
-          <p class="small text-muted">📅 ${new Date(prod.createdAt).toLocaleDateString('es-ES')}</p>
-          <button onclick='agregarAlCarrito(${JSON.stringify(prod).replace(/\\/g, '\\\\')})' class="btn-agregar-carrito w-100">
-            <i class="fas fa-cart-plus"></i> Agregar al carrito
-          </button>
-          <a href="https://wa.me/${prod.telefono}" target="_blank" class="btn btn-whatsapp btn-sm w-100 mt-2">
-            💬 Contactar vendedor
-          </a>
-        </div>
-      </div>
-    `;
-    
-    contenedor.appendChild(col);
-    
-    // Agregar marcador al mapa
-    if (prod.lat && prod.lng && map) {
-      const marker = L.marker([prod.lat, prod.lng])
-        .bindPopup(`
-          <b>${prod.producto}</b><br>
-          Precio: C$${prod.precio}<br>
-          📞 ${prod.telefono}<br>
-          👤 ${prod.nombre || 'Anónimo'}<br>
-          <a href="https://wa.me/${prod.telefono}" target="_blank">Contactar por WhatsApp</a>
-        `)
-        .addTo(map);
-      markers.push(marker);
-    }
-  });
-  
-  // Ajustar mapa a los marcadores
-  if (markers.length > 0 && map) {
-    const group = L.featureGroup(markers);
-    map.fitBounds(group.getBounds().pad(0.2));
-  }
-}
-
 // Permitir búsqueda con Enter
 function iniciarBuscador() {
   const inputBusqueda = document.getElementById("buscarTexto");
@@ -747,9 +652,12 @@ function iniciarBuscador() {
   }
 }
 
+function iniciarFiltros() {
+  iniciarBuscador();
+}
 
 window.onload = () => {
   initMap();
   verificarLogin();
-  iniciarFiltros(); // Iniciar los filtros
+  iniciarFiltros();
 };
