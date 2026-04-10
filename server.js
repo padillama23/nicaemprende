@@ -6,14 +6,23 @@ const path = require("path");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const fs = require("fs");
+const ImageKit = require('imagekitio');
 
 const app = express();
 const SECRET = "nica_secreto";
 
 app.use(cors());
 app.use(express.json());
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 app.use(express.static("public"));
+
+// 🔥 CONFIGURAR IMAGEKIT - Con tus credenciales
+const imagekit = new ImageKit({
+  publicKey: 'public_w3JTdHVznciMeY3TLl7GHMFcSRA=',
+  privateKey: 'private_1nSaiAQ9bsTu271k5w2UaijoSCw=',
+  urlEndpoint: 'https://ik.imagekit.io/c3ginxqwu'
+});
+
+console.log("✅ ImageKit configurado");
 
 // MongoDB
 const MONGO_URI = process.env.MONGO_URI || "mongodb://127.0.0.1:27017/nicaemprende";
@@ -21,14 +30,19 @@ mongoose.connect(MONGO_URI)
   .then(() => console.log("✅ MongoDB conectado"))
   .catch(err => console.log("❌ Error MongoDB:", err));
 
-// Multer
-const storage = multer.diskStorage({
-  destination: "uploads/",
-  filename: (req, file, cb) => {
-    cb(null, Date.now() + path.extname(file.originalname));
+// Multer - Usar memoryStorage para ImageKit (no guardar en disco)
+const storage = multer.memoryStorage();
+const upload = multer({ 
+  storage: storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Solo se permiten imágenes'), false);
+    }
   }
 });
-const upload = multer({ storage });
 
 // MODELOS
 const Usuario = mongoose.model("Usuario", {
@@ -120,32 +134,60 @@ app.post("/login", async (req, res) => {
   });
 });
 
-// PUBLICAR PRODUCTO
+// 🔥 PUBLICAR PRODUCTO CON IMAGEKIT
 app.post("/producto", auth, upload.single("foto"), async (req, res) => {
-  const { nombre, telefono, producto, precio, lat, lng } = req.body;
-  
-  if (!producto || !precio) {
-    return res.status(400).json({ error: "Producto y precio son obligatorios" });
-  }
-  
-  if (!telefono) {
-    return res.status(400).json({ error: "El teléfono es obligatorio para contacto" });
-  }
-  
-  const nuevo = new Producto({
-    usuarioId: req.userId,
-    nombre: nombre || "Emprendedor",
-    telefono: telefono,
-    producto: producto,
-    precio: Number(precio),
-    lat: lat ? Number(lat) : null,
-    lng: lng ? Number(lng) : null,
-    foto: req.file ? req.file.filename : ""
-  });
+  try {
+    const { nombre, telefono, producto, precio, lat, lng } = req.body;
+    
+    if (!producto || !precio) {
+      return res.status(400).json({ error: "Producto y precio son obligatorios" });
+    }
+    
+    if (!telefono) {
+      return res.status(400).json({ error: "El teléfono es obligatorio para contacto" });
+    }
+    
+    let imageUrl = "";
+    
+    // Subir imagen a ImageKit si existe
+    if (req.file) {
+      console.log("📸 Subiendo imagen a ImageKit...");
+      
+      try {
+        const result = await imagekit.upload({
+          file: req.file.buffer.toString('base64'),
+          fileName: Date.now() + '-' + req.file.originalname,
+          folder: "/nicaemprende",
+          useUniqueFileName: true
+        });
+        
+        imageUrl = result.url;
+        console.log("✅ Imagen subida:", imageUrl);
+      } catch (uploadError) {
+        console.error("Error al subir a ImageKit:", uploadError);
+      }
+    }
+    
+    const nuevo = new Producto({
+      usuarioId: req.userId,
+      nombre: nombre || "Emprendedor",
+      telefono: telefono,
+      producto: producto,
+      precio: Number(precio),
+      lat: lat ? Number(lat) : null,
+      lng: lng ? Number(lng) : null,
+      foto: imageUrl
+    });
 
-  await nuevo.save();
-  
-  res.json({ mensaje: "Producto publicado", producto: nuevo });
+    await nuevo.save();
+    console.log("✅ Producto guardado");
+    
+    res.json({ mensaje: "Producto publicado", producto: nuevo });
+    
+  } catch (error) {
+    console.error("Error:", error);
+    res.status(500).json({ error: "Error al publicar el producto" });
+  }
 });
 
 // EDITAR PRODUCTO
@@ -160,24 +202,35 @@ app.put("/producto/:id", auth, upload.single("foto"), async (req, res) => {
       return res.status(404).json({ error: "Producto no encontrado o no tienes permisos" });
     }
     
+    let imageUrl = productoExistente.foto;
+    
+    // Si suben nueva imagen, actualizar
+    if (req.file) {
+      console.log("📸 Actualizando imagen...");
+      
+      try {
+        const result = await imagekit.upload({
+          file: req.file.buffer.toString('base64'),
+          fileName: Date.now() + '-' + req.file.originalname,
+          folder: "/nicaemprende",
+          useUniqueFileName: true
+        });
+        
+        imageUrl = result.url;
+      } catch (uploadError) {
+        console.error("Error al subir a ImageKit:", uploadError);
+      }
+    }
+    
     const updateData = {
       nombre: nombre || productoExistente.nombre,
       telefono: telefono || productoExistente.telefono,
       producto: producto || productoExistente.producto,
       precio: precio ? Number(precio) : productoExistente.precio,
       lat: lat ? Number(lat) : productoExistente.lat,
-      lng: lng ? Number(lng) : productoExistente.lng
+      lng: lng ? Number(lng) : productoExistente.lng,
+      foto: imageUrl
     };
-    
-    if (req.file) {
-      if (productoExistente.foto) {
-        const oldFotoPath = path.join(__dirname, "uploads", productoExistente.foto);
-        if (fs.existsSync(oldFotoPath)) {
-          fs.unlinkSync(oldFotoPath);
-        }
-      }
-      updateData.foto = req.file.filename;
-    }
     
     const productoActualizado = await Producto.findByIdAndUpdate(
       productoId,
@@ -200,13 +253,6 @@ app.delete("/producto/:id", auth, async (req, res) => {
     
     if (!producto) {
       return res.status(404).json({ error: "Producto no encontrado" });
-    }
-    
-    if (producto.foto) {
-      const fotoPath = path.join(__dirname, "uploads", producto.foto);
-      if (fs.existsSync(fotoPath)) {
-        fs.unlinkSync(fotoPath);
-      }
     }
     
     await producto.deleteOne();
@@ -243,4 +289,8 @@ app.get("/producto/:id", auth, async (req, res) => {
   }
 });
 
-app.listen(3000, () => console.log("🚀 Servidor corriendo en http://localhost:3000"));
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`🚀 Servidor corriendo en puerto ${PORT}`);
+  console.log(`🖼️ ImageKit URL: https://ik.imagekit.io/c3ginxqwu`);
+});
