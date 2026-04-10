@@ -15,7 +15,7 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static("public"));
 
-// 🔥 CONFIGURAR IMAGEKIT - Con tus credenciales
+// 🔥 CONFIGURAR IMAGEKIT
 const imagekit = new ImageKit({
   publicKey: 'public_w3JTdHVznciMeY3TLl7GHMFcSRA=',
   privateKey: 'private_1nSaiAQ9bsTu271k5w2UaijoSCw=',
@@ -30,11 +30,11 @@ mongoose.connect(MONGO_URI)
   .then(() => console.log("✅ MongoDB conectado"))
   .catch(err => console.log("❌ Error MongoDB:", err));
 
-// Multer - Usar memoryStorage para ImageKit (no guardar en disco)
+// Multer
 const storage = multer.memoryStorage();
 const upload = multer({ 
   storage: storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     if (file.mimetype.startsWith('image/')) {
       cb(null, true);
@@ -78,7 +78,7 @@ function auth(req, res, next) {
   }
 }
 
-// REGISTRO USUARIO
+// REGISTRO
 app.post("/registro", async (req, res) => {
   const { nombre, telefono, password } = req.body;
   
@@ -134,16 +134,13 @@ app.post("/login", async (req, res) => {
   });
 });
 
-// PUBLICAR PRODUCTO CON IMAGEKIT
+// PUBLICAR PRODUCTO CON IMAGEKIT (VERSIÓN CORREGIDA)
 app.post("/producto", auth, upload.single("foto"), async (req, res) => {
   try {
     console.log("=".repeat(50));
     console.log("📦 PUBLICANDO PRODUCTO");
-    console.log("=".repeat(50));
     
     const { nombre, telefono, producto, precio, lat, lng } = req.body;
-    
-    console.log("Datos del producto:", { nombre, telefono, producto, precio });
     
     if (!producto || !precio) {
       return res.status(400).json({ error: "Producto y precio son obligatorios" });
@@ -155,43 +152,30 @@ app.post("/producto", auth, upload.single("foto"), async (req, res) => {
     
     let imageUrl = "";
     
-    // Verificar si hay archivo
-    console.log("Archivo recibido:", req.file ? "SÍ" : "NO");
-    
     if (req.file) {
-      console.log("📸 Detalles del archivo:");
-      console.log("  - Nombre original:", req.file.originalname);
-      console.log("  - Tamaño:", req.file.size, "bytes");
-      console.log("  - Tipo MIME:", req.file.mimetype);
-      console.log("  - Buffer tamaño:", req.file.buffer ? req.file.buffer.length : 0);
+      console.log("📸 Subiendo imagen...");
+      console.log("  Original:", req.file.originalname);
+      console.log("  Tamaño:", req.file.size);
       
-      console.log("📤 Subiendo imagen a ImageKit...");
+      // 🔥 GENERAR NOMBRE DE ARCHIVO SEGURO
+      const timestamp = Date.now();
+      const randomString = Math.random().toString(36).substring(2, 10);
+      const extension = path.extname(req.file.originalname).toLowerCase();
+      const cleanFileName = `${timestamp}-${randomString}${extension}`;
       
-      try {
-        const result = await imagekit.upload({
-          file: req.file.buffer.toString('base64'),
-          fileName: Date.now() + '-' + req.file.originalname.replace(/[^a-zA-Z0-9.]/g, '_'),
-          folder: "/nicaemprende",
-          useUniqueFileName: true,
-          tags: ["nicaemprende", "producto"]
-        });
-        
-        imageUrl = result.url;
-        console.log("✅ Imagen subida exitosamente!");
-        console.log("   URL:", imageUrl);
-        console.log("   ID:", result.fileId);
-        console.log("   Tamaño:", result.size, "bytes");
-      } catch (uploadError) {
-        console.error("❌ ERROR al subir a ImageKit:");
-        console.error("   Mensaje:", uploadError.message);
-        console.error("   Código:", uploadError.code);
-        if (uploadError.response) {
-          console.error("   Respuesta:", uploadError.response.data);
-        }
-        // No detenemos el proceso, guardamos producto sin imagen
-      }
+      console.log("  Nombre limpio:", cleanFileName);
+      
+      const result = await imagekit.upload({
+        file: req.file.buffer.toString('base64'),
+        fileName: cleanFileName,
+        folder: "/nicaemprende",
+        useUniqueFileName: true
+      });
+      
+      imageUrl = result.url;
+      console.log("✅ Imagen subida:", imageUrl);
     } else {
-      console.log("⚠️ No se recibió archivo de imagen");
+      console.log("⚠️ No se recibió archivo");
     }
     
     const nuevo = new Producto({
@@ -206,23 +190,13 @@ app.post("/producto", auth, upload.single("foto"), async (req, res) => {
     });
 
     await nuevo.save();
-    console.log("✅ Producto guardado en MongoDB");
-    console.log("   ID:", nuevo._id);
-    console.log("   Foto URL guardada:", imageUrl || "(sin imagen)");
-    console.log("=".repeat(50));
+    console.log("✅ Producto guardado. Foto:", imageUrl || "sin imagen");
     
-    res.json({ 
-      mensaje: "Producto publicado", 
-      producto: {
-        ...nuevo.toObject(),
-        fotoUrl: imageUrl
-      }
-    });
+    res.json({ mensaje: "Producto publicado", producto: nuevo });
     
   } catch (error) {
-    console.error("❌ ERROR GENERAL:");
-    console.error(error);
-    res.status(500).json({ error: "Error al publicar el producto: " + error.message });
+    console.error("❌ Error:", error);
+    res.status(500).json({ error: "Error al publicar" });
   }
 });
 
@@ -235,27 +209,25 @@ app.put("/producto/:id", auth, upload.single("foto"), async (req, res) => {
     const productoExistente = await Producto.findOne({ _id: productoId, usuarioId: req.userId });
     
     if (!productoExistente) {
-      return res.status(404).json({ error: "Producto no encontrado o no tienes permisos" });
+      return res.status(404).json({ error: "Producto no encontrado" });
     }
     
     let imageUrl = productoExistente.foto;
     
-    // Si suben nueva imagen, actualizar
     if (req.file) {
-      console.log("📸 Actualizando imagen...");
+      const timestamp = Date.now();
+      const randomString = Math.random().toString(36).substring(2, 10);
+      const extension = path.extname(req.file.originalname).toLowerCase();
+      const cleanFileName = `${timestamp}-${randomString}${extension}`;
       
-      try {
-        const result = await imagekit.upload({
-          file: req.file.buffer.toString('base64'),
-          fileName: Date.now() + '-' + req.file.originalname,
-          folder: "/nicaemprende",
-          useUniqueFileName: true
-        });
-        
-        imageUrl = result.url;
-      } catch (uploadError) {
-        console.error("Error al subir a ImageKit:", uploadError);
-      }
+      const result = await imagekit.upload({
+        file: req.file.buffer.toString('base64'),
+        fileName: cleanFileName,
+        folder: "/nicaemprende",
+        useUniqueFileName: true
+      });
+      
+      imageUrl = result.url;
     }
     
     const updateData = {
@@ -268,17 +240,12 @@ app.put("/producto/:id", auth, upload.single("foto"), async (req, res) => {
       foto: imageUrl
     };
     
-    const productoActualizado = await Producto.findByIdAndUpdate(
-      productoId,
-      updateData,
-      { new: true }
-    );
-    
-    res.json({ mensaje: "Producto actualizado exitosamente", producto: productoActualizado });
+    await Producto.findByIdAndUpdate(productoId, updateData, { new: true });
+    res.json({ mensaje: "Producto actualizado" });
     
   } catch (error) {
-    console.error("Error al editar:", error);
-    res.status(500).json({ error: "Error al actualizar el producto" });
+    console.error("Error:", error);
+    res.status(500).json({ error: "Error al actualizar" });
   }
 });
 
@@ -286,21 +253,17 @@ app.put("/producto/:id", auth, upload.single("foto"), async (req, res) => {
 app.delete("/producto/:id", auth, async (req, res) => {
   try {
     const producto = await Producto.findOne({ _id: req.params.id, usuarioId: req.userId });
-    
     if (!producto) {
       return res.status(404).json({ error: "Producto no encontrado" });
     }
-    
     await producto.deleteOne();
-    res.json({ mensaje: "Producto eliminado exitosamente" });
-    
+    res.json({ mensaje: "Producto eliminado" });
   } catch (error) {
-    console.error("Error al eliminar:", error);
-    res.status(500).json({ error: "Error al eliminar el producto" });
+    res.status(500).json({ error: "Error al eliminar" });
   }
 });
 
-// LISTAR TODOS LOS PRODUCTOS
+// LISTAR PRODUCTOS
 app.get("/productos", async (req, res) => {
   const productos = await Producto.find().sort({ createdAt: -1 });
   res.json(productos);
@@ -312,21 +275,18 @@ app.get("/mis-productos", auth, async (req, res) => {
   res.json(productos);
 });
 
-// OBTENER UN PRODUCTO ESPECÍFICO
+// OBTENER UN PRODUCTO
 app.get("/producto/:id", auth, async (req, res) => {
   try {
     const producto = await Producto.findOne({ _id: req.params.id, usuarioId: req.userId });
-    if (!producto) {
-      return res.status(404).json({ error: "Producto no encontrado" });
-    }
     res.json(producto);
   } catch (error) {
-    res.status(500).json({ error: "Error al obtener el producto" });
+    res.status(500).json({ error: "Error al obtener" });
   }
 });
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`🚀 Servidor corriendo en puerto ${PORT}`);
+  console.log(`🚀 Servidor en puerto ${PORT}`);
   console.log(`🖼️ ImageKit URL: https://ik.imagekit.io/c3ginxqwu`);
 });
