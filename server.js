@@ -134,7 +134,7 @@ app.post("/login", async (req, res) => {
   });
 });
 
-// 🔥 PUBLICAR PRODUCTO CON IMAGEKIT - VERSIÓN CORREGIDA
+// 🔥 PUBLICAR PRODUCTO CON IMAGEKIT - VERSIÓN DEFINITIVA
 app.post("/producto", auth, upload.single("foto"), async (req, res) => {
   try {
     console.log("=".repeat(50));
@@ -159,29 +159,27 @@ app.post("/producto", auth, upload.single("foto"), async (req, res) => {
       console.log("  Tipo:", req.file.mimetype);
       
       try {
-        // Convertir el buffer a base64
-        const base64Image = req.file.buffer.toString('base64');
-        
-        // Subir a ImageKit
+        // 🔥 NO PASAMOS fileName, DEJAMOS QUE IMAGEKIT LO GENERE
         const result = await imagekit.upload({
-          file: base64Image,
-          fileName: `producto_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
+          file: req.file.buffer, // Enviamos el buffer directamente
           folder: "/nicaemprende",
-          useUniqueFileName: true,
+          useUniqueFileName: true,  // ImageKit genera el nombre
           isPrivateFile: false,
           tags: ["nicaemprende", "producto"]
         });
         
         imageUrl = result.url;
         console.log("✅ Imagen subida exitosamente!");
-        console.log("   URL:", imageUrl);
+        console.log("   URL COMPLETA:", imageUrl);
         console.log("   File ID:", result.fileId);
+        console.log("   Nombre en servidor:", result.name);
         
       } catch (uploadError) {
-        console.error("❌ ERROR al subir a ImageKit:");
+        console.error("❌ ERROR DETALLADO al subir a ImageKit:");
         console.error("   Mensaje:", uploadError.message);
+        console.error("   Código:", uploadError.code);
         if (uploadError.response) {
-          console.error("   Respuesta:", JSON.stringify(uploadError.response.data));
+          console.error("   Respuesta del servidor:", JSON.stringify(uploadError.response.data));
         }
         // Continuamos sin imagen
       }
@@ -203,7 +201,7 @@ app.post("/producto", auth, upload.single("foto"), async (req, res) => {
     await nuevo.save();
     console.log("✅ Producto guardado en MongoDB");
     console.log("   ID:", nuevo._id);
-    console.log("   Foto URL:", imageUrl || "(sin imagen)");
+    console.log("   URL guardada:", imageUrl || "(sin imagen)");
     console.log("=".repeat(50));
     
     res.json({ 
@@ -236,10 +234,8 @@ app.put("/producto/:id", auth, upload.single("foto"), async (req, res) => {
       console.log("📸 Actualizando imagen...");
       
       try {
-        const base64Image = req.file.buffer.toString('base64');
         const result = await imagekit.upload({
-          file: base64Image,
-          fileName: `producto_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
+          file: req.file.buffer,
           folder: "/nicaemprende",
           useUniqueFileName: true,
           isPrivateFile: false
