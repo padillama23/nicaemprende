@@ -158,12 +158,21 @@ app.post("/producto", auth, upload.single("foto"), async (req, res) => {
       console.log("  Tamaño:", req.file.size, "bytes");
       console.log("  Tipo:", req.file.mimetype);
       
+      // Obtener la extensión del archivo
+      const extension = path.extname(req.file.originalname).toLowerCase();
+      // Crear un nombre base simple (solo timestamp)
+      const baseName = `producto_${Date.now()}`;
+      // Nombre final con extensión
+      const finalFileName = `${baseName}${extension}`;
+      
+      console.log("  Nombre para ImageKit:", finalFileName);
+      
       try {
-        // 🔥 NO PASAMOS fileName, DEJAMOS QUE IMAGEKIT LO GENERE
         const result = await imagekit.upload({
-          file: req.file.buffer, // Enviamos el buffer directamente
+          file: req.file.buffer.toString('base64'),
+          fileName: finalFileName,
           folder: "/nicaemprende",
-          useUniqueFileName: true,  // ImageKit genera el nombre
+          useUniqueFileName: true,
           isPrivateFile: false,
           tags: ["nicaemprende", "producto"]
         });
@@ -172,16 +181,13 @@ app.post("/producto", auth, upload.single("foto"), async (req, res) => {
         console.log("✅ Imagen subida exitosamente!");
         console.log("   URL COMPLETA:", imageUrl);
         console.log("   File ID:", result.fileId);
-        console.log("   Nombre en servidor:", result.name);
         
       } catch (uploadError) {
         console.error("❌ ERROR DETALLADO al subir a ImageKit:");
         console.error("   Mensaje:", uploadError.message);
-        console.error("   Código:", uploadError.code);
         if (uploadError.response) {
           console.error("   Respuesta del servidor:", JSON.stringify(uploadError.response.data));
         }
-        // Continuamos sin imagen
       }
     } else {
       console.log("⚠️ No se recibió archivo de imagen");
@@ -233,9 +239,14 @@ app.put("/producto/:id", auth, upload.single("foto"), async (req, res) => {
     if (req.file) {
       console.log("📸 Actualizando imagen...");
       
+      const extension = path.extname(req.file.originalname).toLowerCase();
+      const baseName = `producto_${Date.now()}`;
+      const finalFileName = `${baseName}${extension}`;
+      
       try {
         const result = await imagekit.upload({
-          file: req.file.buffer,
+          file: req.file.buffer.toString('base64'),
+          fileName: finalFileName,
           folder: "/nicaemprende",
           useUniqueFileName: true,
           isPrivateFile: false
